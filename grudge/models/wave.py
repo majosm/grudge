@@ -170,10 +170,21 @@ class WeakWaveOperator(HyperbolicOperator):
 
     def check_bc_coverage(self, mesh):
         from meshmode.mesh import check_bc_coverage
-        check_bc_coverage(mesh, [
-            self.dirichlet_tag,
-            self.neumann_tag,
-            self.radiation_tag])
+
+        btags = []
+        for tag in [
+                self.dirichlet_tag,
+                self.neumann_tag,
+                self.radiation_tag]:
+            if tag is BTAG_NONE:
+                continue
+            elif tag is BTAG_ALL:
+                btags = BTAG_ALL
+                break
+            else:
+                btags.append(tag)
+
+        check_bc_coverage(mesh, btags)
 
     def max_characteristic_velocity(self, actx, t=None, fields=None):
         return abs(self.c)
@@ -332,10 +343,21 @@ class VariableCoefficientWeakWaveOperator(HyperbolicOperator):
 
     def check_bc_coverage(self, mesh):
         from meshmode.mesh import check_bc_coverage
-        check_bc_coverage(mesh, [
-            self.dirichlet_tag,
-            self.neumann_tag,
-            self.radiation_tag])
+
+        btags = []
+        for tag in [
+                self.dirichlet_tag,
+                self.neumann_tag,
+                self.radiation_tag]:
+            if tag is BTAG_NONE:
+                continue
+            elif tag is BTAG_ALL:
+                btags = BTAG_ALL
+                break
+            else:
+                btags.append(tag)
+
+        check_bc_coverage(mesh, btags)
 
     def max_characteristic_velocity(self, actx, **kwargs):
         return actx.np.fabs(thaw(self.c, actx))

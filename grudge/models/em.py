@@ -343,11 +343,22 @@ class MaxwellOperator(HyperbolicOperator):
 
     def check_bc_coverage(self, mesh):
         from meshmode.mesh import check_bc_coverage
-        check_bc_coverage(mesh, [
-            self.pec_tag,
-            self.pmc_tag,
-            self.absorb_tag,
-            self.incident_tag])
+
+        btags = []
+        for tag in [
+                self.pec_tag,
+                self.pmc_tag,
+                self.absorb_tag,
+                self.incident_tag]:
+            if tag is BTAG_NONE:
+                continue
+            elif tag is BTAG_ALL:
+                btags = BTAG_ALL
+                break
+            else:
+                btags.append(tag)
+
+        check_bc_coverage(mesh, btags)
 
 
 # NOTE: Hack for getting the derivative operators to play nice
