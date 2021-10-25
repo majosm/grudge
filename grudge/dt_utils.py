@@ -44,9 +44,12 @@ THE SOFTWARE.
 
 
 import numpy as np
-from typing import Any
 
-from arraycontext import ArrayContext, thaw, freeze
+from arraycontext import (
+    ArrayContext,
+    thaw,
+    freeze,
+    ArrayT)
 from meshmode.transform_metadata import FirstAxisIsElementsTag
 
 from grudge.dof_desc import DD_VOLUME, DOFDesc, as_dofdesc
@@ -159,7 +162,7 @@ def dt_non_geometric_factors(
 
 @memoize_on_first_arg
 def h_max_from_volume(
-        dcoll: DiscretizationCollection, dim=None, dd=None) -> Any:
+        dcoll: DiscretizationCollection, dim=None, dd=None) -> ArrayT:
     """Returns a (maximum) characteristic length based on the volume of the
     elements. This length may not be representative if the elements have very
     high aspect ratios.
@@ -190,7 +193,7 @@ def h_max_from_volume(
 
 @memoize_on_first_arg
 def h_min_from_volume(
-        dcoll: DiscretizationCollection, dim=None, dd=None) -> Any:
+        dcoll: DiscretizationCollection, dim=None, dd=None) -> ArrayT:
     """Returns a (minimum) characteristic length based on the volume of the
     elements. This length may not be representative if the elements have very
     high aspect ratios.
