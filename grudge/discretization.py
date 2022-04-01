@@ -834,13 +834,14 @@ def _set_up_inter_partition_connections(
         part_id = part_id_helper.make(rank, vtag)
         connected_part_ids = get_connected_partitions(volume_discr.mesh)
         for connected_part_id in connected_part_ids:
-            bdry_restr = get_part_bdry_restriction(part_id, connected_part_id)
+            bdry_restr = get_part_bdry_restriction(
+                self_part_id=part_id, other_part_id=connected_part_id)
 
             if part_id_helper.get_mpi_rank(connected_part_id) == rank:
                 # {{{ rank-local interface between multiple volumes
 
-                rev_bdry_restr = get_part_bdry_restriction(
-                    connected_part_id, part_id)
+                connected_bdry_restr = get_part_bdry_restriction(
+                    self_part_id=connected_part_id, other_part_id=part_id)
 
                 from meshmode.discretization.connection import \
                         make_partition_connection
@@ -848,9 +849,9 @@ def _set_up_inter_partition_connections(
                     make_partition_connection(
                         array_context,
                         local_bdry_conn=bdry_restr,
-                        remote_bdry_discr=rev_bdry_restr.to_discr,
+                        remote_bdry_discr=connected_bdry_restr.to_discr,
                         remote_group_infos=make_remote_group_infos(
-                            array_context, connected_part_id, rev_bdry_restr))
+                            array_context, connected_part_id, connected_bdry_restr))
 
                 # }}}
             else:
