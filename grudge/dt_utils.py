@@ -90,7 +90,7 @@ def characteristic_lengthscales(
         methods has been used as a guide. Any concrete time integrator will
         likely require scaling of the values returned by this routine.
     """
-    @memoize_in(dcoll, (characteristic_lengthscales,
+    @memoize_in(dcoll, (characteristic_lengthscales, dd,
                         "compute_characteristic_lengthscales"))
     def _compute_characteristic_lengthscales():
         return freeze(
