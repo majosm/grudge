@@ -58,6 +58,7 @@ THE SOFTWARE.
 """
 
 
+from typing import Optional, Tuple, Union
 import numpy as np
 
 from arraycontext import thaw, freeze, ArrayContext
@@ -67,7 +68,7 @@ from grudge import DiscretizationCollection
 import grudge.dof_desc as dof_desc
 
 from grudge.dof_desc import (
-    DD_VOLUME, DOFDesc, DISCR_TAG_BASE
+    DD_VOLUME_ALL, DOFDesc, DISCR_TAG_BASE
 )
 
 from meshmode.transform_metadata import (DiscretizationPhysicalDimAxisTag,
@@ -114,7 +115,8 @@ def _geometry_to_quad_if_requested(
 
 def forward_metric_nth_derivative(
         actx: ArrayContext, dcoll: DiscretizationCollection,
-        xyz_axis, ref_axes, dd=None,
+        xyz_axis: int, ref_axes: Union[int, Tuple[Tuple[int, int], ...]],
+        dd: Optional[DOFDesc] = None,
         *, _use_geoderiv_connection=False) -> DOFArray:
     r"""Pointwise metric derivatives representing repeated derivatives of the
     physical coordinate enumerated by *xyz_axis*: :math:`x_{\mathrm{xyz\_axis}}`
@@ -149,7 +151,7 @@ def forward_metric_nth_derivative(
         metric derivative at each nodal coordinate.
     """
     if dd is None:
-        dd = DD_VOLUME
+        dd = DD_VOLUME_ALL
 
     inner_dd = dd.with_discr_tag(DISCR_TAG_BASE)
 
@@ -181,8 +183,10 @@ def forward_metric_nth_derivative(
 
 
 def forward_metric_derivative_vector(
-        actx: ArrayContext, dcoll: DiscretizationCollection, rst_axis, dd=None,
-        *, _use_geoderiv_connection=False) -> np.ndarray:
+        actx: ArrayContext, dcoll: DiscretizationCollection,
+        rst_axis: Union[int, Tuple[Tuple[int, int], ...]],
+        dd: Optional[DOFDesc] = None, *, _use_geoderiv_connection=False
+        ) -> np.ndarray:
     r"""Computes an object array containing the forward metric derivatives
     of each physical coordinate.
 
@@ -206,7 +210,9 @@ def forward_metric_derivative_vector(
 
 
 def forward_metric_derivative_mv(
-        actx: ArrayContext, dcoll: DiscretizationCollection, rst_axis, dd=None,
+        actx: ArrayContext, dcoll: DiscretizationCollection,
+        rst_axis: Union[int, Tuple[Tuple[int, int], ...]],
+        dd: Optional[DOFDesc] = None,
         *, _use_geoderiv_connection=False) -> MultiVector:
     r"""Computes a :class:`pymbolic.geometric_algebra.MultiVector` containing
     the forward metric derivatives of each physical coordinate.
@@ -229,7 +235,8 @@ def forward_metric_derivative_mv(
 
 
 def forward_metric_derivative_mat(
-        actx: ArrayContext, dcoll: DiscretizationCollection, dd=None,
+        actx: ArrayContext, dcoll: DiscretizationCollection,
+        dd: Optional[DOFDesc] = None,
         *, _use_geoderiv_connection=False) -> np.ndarray:
     r"""Computes the forward metric derivative matrix, also commonly
     called the Jacobian matrix, with entries defined as the
@@ -256,7 +263,7 @@ def forward_metric_derivative_mat(
     ambient_dim = dcoll.ambient_dim
 
     if dd is None:
-        dd = DD_VOLUME
+        dd = DD_VOLUME_ALL
 
     dim = dcoll.discr_from_dd(dd).dim
 
@@ -270,7 +277,8 @@ def forward_metric_derivative_mat(
 
 
 def first_fundamental_form(actx: ArrayContext, dcoll: DiscretizationCollection,
-        dd=None, *, _use_geoderiv_connection=False) -> np.ndarray:
+        dd: Optional[DOFDesc] = None, *, _use_geoderiv_connection=False
+        ) -> np.ndarray:
     r"""Computes the first fundamental form using the Jacobian matrix:
 
     .. math::
@@ -296,7 +304,7 @@ def first_fundamental_form(actx: ArrayContext, dcoll: DiscretizationCollection,
         form.
     """
     if dd is None:
-        dd = DD_VOLUME
+        dd = DD_VOLUME_ALL
 
     mder = forward_metric_derivative_mat(
         actx, dcoll, dd=dd, _use_geoderiv_connection=_use_geoderiv_connection)
@@ -305,7 +313,8 @@ def first_fundamental_form(actx: ArrayContext, dcoll: DiscretizationCollection,
 
 
 def inverse_metric_derivative_mat(
-        actx: ArrayContext, dcoll: DiscretizationCollection, dd=None,
+        actx: ArrayContext, dcoll: DiscretizationCollection,
+        dd: Optional[DOFDesc] = None,
         *, _use_geoderiv_connection=False) -> np.ndarray:
     r"""Computes the inverse metric derivative matrix, which is
     the inverse of the Jacobian (forward metric derivative) matrix.
@@ -319,7 +328,7 @@ def inverse_metric_derivative_mat(
     ambient_dim = dcoll.ambient_dim
 
     if dd is None:
-        dd = DD_VOLUME
+        dd = DD_VOLUME_ALL
 
     dim = dcoll.discr_from_dd(dd).dim
 
@@ -335,7 +344,8 @@ def inverse_metric_derivative_mat(
 
 
 def inverse_first_fundamental_form(
-        actx: ArrayContext, dcoll: DiscretizationCollection, dd=None,
+        actx: ArrayContext, dcoll: DiscretizationCollection,
+        dd: Optional[DOFDesc] = None,
         *, _use_geoderiv_connection=False) -> np.ndarray:
     r"""Computes the inverse of the first fundamental form:
 
@@ -359,7 +369,7 @@ def inverse_first_fundamental_form(
         first fundamental form.
     """
     if dd is None:
-        dd = DD_VOLUME
+        dd = DD_VOLUME_ALL
 
     dim = dcoll.discr_from_dd(dd).dim
 
@@ -386,7 +396,8 @@ def inverse_first_fundamental_form(
 
 
 def inverse_metric_derivative(
-        actx: ArrayContext, dcoll: DiscretizationCollection, rst_axis, xyz_axis, dd,
+        actx: ArrayContext, dcoll: DiscretizationCollection,
+        rst_axis: int, xyz_axis: int, dd: DOFDesc,
         *, _use_geoderiv_connection=False
         ) -> DOFArray:
     r"""Computes the inverse metric derivative of the physical
@@ -445,7 +456,7 @@ def inverse_metric_derivative(
 
 def inverse_surface_metric_derivative(
         actx: ArrayContext, dcoll: DiscretizationCollection,
-        rst_axis, xyz_axis, dd=None,
+        rst_axis, xyz_axis, dd: Optional[DOFDesc] = None,
         *, _use_geoderiv_connection=False):
     r"""Computes the inverse surface metric derivative of the physical
     coordinate enumerated by *xyz_axis* with respect to the
@@ -467,7 +478,7 @@ def inverse_surface_metric_derivative(
     ambient_dim = dcoll.ambient_dim
 
     if dd is None:
-        dd = DD_VOLUME
+        dd = DD_VOLUME_ALL
     dd = dof_desc.as_dofdesc(dd)
 
     if ambient_dim == dim:
@@ -487,7 +498,8 @@ def inverse_surface_metric_derivative(
 
 
 def inverse_surface_metric_derivative_mat(
-        actx: ArrayContext, dcoll: DiscretizationCollection, dd=None,
+        actx: ArrayContext, dcoll: DiscretizationCollection,
+        dd: Optional[DOFDesc] = None,
         *, times_area_element=False, _use_geoderiv_connection=False):
     r"""Computes the matrix of inverse surface metric derivatives, indexed by
     ``(xyz_axis, rst_axis)``. It returns all values of
@@ -537,7 +549,7 @@ def inverse_surface_metric_derivative_mat(
 
 
 def _signed_face_ones(
-        actx: ArrayContext, dcoll: DiscretizationCollection, dd
+        actx: ArrayContext, dcoll: DiscretizationCollection, dd: DOFDesc
         ) -> DOFArray:
 
     assert dd.is_trace()
@@ -545,7 +557,7 @@ def _signed_face_ones(
     # NOTE: ignore quadrature_tags on dd, since we only care about
     # the face_id here
     all_faces_conn = dcoll.connection_from_dds(
-        DD_VOLUME, DOFDesc(dd.domain_tag)
+        DD_VOLUME_ALL, DOFDesc(dd.domain_tag, DISCR_TAG_BASE)
     )
     signed_ones = dcoll.discr_from_dd(dd.with_discr_tag(DISCR_TAG_BASE)).zeros(
         actx, dtype=dcoll.real_dtype
@@ -566,7 +578,7 @@ def _signed_face_ones(
 
 
 def parametrization_derivative(
-        actx: ArrayContext, dcoll: DiscretizationCollection, dd,
+        actx: ArrayContext, dcoll: DiscretizationCollection, dd: DOFDesc,
         *, _use_geoderiv_connection=False) -> MultiVector:
     r"""Computes the product of forward metric derivatives spanning the
     tangent space with topological dimension *dim*.
@@ -579,7 +591,7 @@ def parametrization_derivative(
         the product of metric derivatives.
     """
     if dd is None:
-        dd = DD_VOLUME
+        dd = DD_VOLUME_ALL
 
     dim = dcoll.discr_from_dd(dd).dim
     if dim == 0:
@@ -600,8 +612,10 @@ def parametrization_derivative(
     )
 
 
-def pseudoscalar(actx: ArrayContext, dcoll: DiscretizationCollection,
-        dd=None, *, _use_geoderiv_connection=False) -> MultiVector:
+def pseudoscalar(
+        actx: ArrayContext, dcoll: DiscretizationCollection,
+        dd: Optional[DOFDesc] = None, *, _use_geoderiv_connection=False
+        ) -> MultiVector:
     r"""Computes the field of pseudoscalars for the domain/discretization
     identified by *dd*.
 
@@ -613,7 +627,7 @@ def pseudoscalar(actx: ArrayContext, dcoll: DiscretizationCollection,
         :class:`~meshmode.dof_array.DOFArray`\ s.
     """
     if dd is None:
-        dd = DD_VOLUME
+        dd = DD_VOLUME_ALL
 
     return parametrization_derivative(
         actx, dcoll, dd,
@@ -621,7 +635,8 @@ def pseudoscalar(actx: ArrayContext, dcoll: DiscretizationCollection,
 
 
 def area_element(
-        actx: ArrayContext, dcoll: DiscretizationCollection, dd=None,
+        actx: ArrayContext, dcoll: DiscretizationCollection,
+        dd: Optional[DOFDesc] = None,
         *, _use_geoderiv_connection=False
         ) -> DOFArray:
     r"""Computes the scale factor used to transform integrals from reference
@@ -637,7 +652,7 @@ def area_element(
         volumes for each element.
     """
     if dd is None:
-        dd = DD_VOLUME
+        dd = DD_VOLUME_ALL
 
     @memoize_in(dcoll, (area_element, dd, _use_geoderiv_connection))
     def _area_elements():
@@ -656,7 +671,8 @@ def area_element(
 # {{{ Surface normal vectors
 
 def rel_mv_normal(
-        actx: ArrayContext, dcoll: DiscretizationCollection, dd=None,
+        actx: ArrayContext, dcoll: DiscretizationCollection,
+        dd: Optional[DOFDesc] = None,
         *, _use_geoderiv_connection=False) -> MultiVector:
     r"""Computes surface normals at each nodal location as a
     :class:`~pymbolic.geometric_algebra.MultiVector` relative to the
@@ -682,7 +698,7 @@ def rel_mv_normal(
 
 
 def mv_normal(
-        actx: ArrayContext, dcoll: DiscretizationCollection, dd,
+        actx: ArrayContext, dcoll: DiscretizationCollection, dd: DOFDesc,
         *, _use_geoderiv_connection=False
         ) -> MultiVector:
     r"""Exterior unit normal as a :class:`~pymbolic.geometric_algebra.MultiVector`.
@@ -738,10 +754,10 @@ def mv_normal(
             from grudge.op import project
 
             volm_normal = MultiVector(
-                project(dcoll, dof_desc.DD_VOLUME, dd,
+                project(dcoll, DD_VOLUME_ALL, dd,
                         rel_mv_normal(
                             actx, dcoll,
-                            dd=dof_desc.DD_VOLUME,
+                            dd=DD_VOLUME_ALL,
                             _use_geoderiv_connection=_use_geoderiv_connection
                         ).as_vector(dtype=object))
             )
@@ -759,7 +775,7 @@ def mv_normal(
     return thaw(n, actx)
 
 
-def normal(actx: ArrayContext, dcoll: DiscretizationCollection, dd,
+def normal(actx: ArrayContext, dcoll: DiscretizationCollection, dd: DOFDesc,
         *, _use_geoderiv_connection=None):
     """Get the unit normal to the specified surface discretization, *dd*.
     This supports both volume discretizations
@@ -789,8 +805,8 @@ def normal(actx: ArrayContext, dcoll: DiscretizationCollection, dd,
 # {{{ Curvature computations
 
 def second_fundamental_form(
-        actx: ArrayContext, dcoll: DiscretizationCollection, dd=None
-        ) -> np.ndarray:
+        actx: ArrayContext, dcoll: DiscretizationCollection,
+        dd: Optional[DOFDesc] = None) -> np.ndarray:
     r"""Computes the second fundamental form:
 
     .. math::
@@ -808,7 +824,7 @@ def second_fundamental_form(
     """
 
     if dd is None:
-        dd = DD_VOLUME
+        dd = DD_VOLUME_ALL
 
     dim = dcoll.discr_from_dd(dd).dim
     normal = rel_mv_normal(actx, dcoll, dd=dd).as_vector(dtype=object)
@@ -837,7 +853,7 @@ def second_fundamental_form(
 
 
 def shape_operator(actx: ArrayContext, dcoll: DiscretizationCollection,
-        dd=None) -> np.ndarray:
+        dd: Optional[DOFDesc] = None) -> np.ndarray:
     r"""Computes the shape operator (also called the curvature tensor) containing
     second order derivatives:
 
@@ -862,7 +878,7 @@ def shape_operator(actx: ArrayContext, dcoll: DiscretizationCollection,
 
 
 def summed_curvature(actx: ArrayContext, dcoll: DiscretizationCollection,
-        dd=None) -> DOFArray:
+        dd: Optional[DOFDesc] = None) -> DOFArray:
     r"""Computes the sum of the principal curvatures:
 
     .. math::
@@ -879,7 +895,7 @@ def summed_curvature(actx: ArrayContext, dcoll: DiscretizationCollection,
     """
 
     if dd is None:
-        dd = DD_VOLUME
+        dd = DD_VOLUME_ALL
 
     dim = dcoll.ambient_dim - 1
 

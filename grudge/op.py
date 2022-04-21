@@ -69,6 +69,10 @@ from pytools.obj_array import obj_array_vectorize, make_obj_array
 import numpy as np
 
 import grudge.dof_desc as dof_desc
+from grudge.dof_desc import (
+    DD_VOLUME_ALL, FACE_RESTR_ALL, DISCR_TAG_BASE,
+    DOFDesc, VolumeDomainTag
+)
 
 from grudge.interpolation import interp  # noqa: F401
 from grudge.projection import project  # noqa: F401
@@ -91,10 +95,13 @@ from grudge.reductions import (  # noqa: F401
 from grudge.trace_pair import (  # noqa: F401
     interior_trace_pair,
     interior_trace_pairs,
-    connected_ranks,
+    local_interior_trace_pair,
     cross_rank_trace_pairs,
+    inter_volume_trace_pairs,
+    local_inter_volume_trace_pairs,
+    cross_rank_inter_volume_trace_pairs,
     bdry_trace_pair,
-    bv_trace_pair
+    bv_trace_pair,
 )
 
 
@@ -167,7 +174,7 @@ def _gradient_kernel(actx, out_discr, in_discr, get_diff_mat, inv_jac_mat, vec,
 def _div_helper(dcoll, diff_func, *args):
     if len(args) == 1:
         vecs, = args
-        dd = dof_desc.DOFDesc("vol", dof_desc.DISCR_TAG_BASE)
+        dd = DD_VOLUME_ALL
     elif len(args) == 2:
         dd, vecs = args
     else:
@@ -209,7 +216,7 @@ def _div_helper(dcoll, diff_func, *args):
 def _grad_helper(dcoll, scalar_grad, *args, nested):
     if len(args) == 1:
         vec, = args
-        dd_in = dof_desc.DOFDesc("vol", dof_desc.DISCR_TAG_BASE)
+        dd_in = dof_desc.DD_VOLUME_ALL
     elif len(args) == 2:
         dd_in, vec = args
     else:
@@ -269,15 +276,13 @@ def _reference_derivative_matrices(actx: ArrayContext,
     return get_ref_derivative_mats(out_element_group)
 
 
-def _strong_scalar_grad(dcoll, dd_in, vec):
-    assert dd_in == dof_desc.as_dofdesc(dof_desc.DD_VOLUME)
-
+def _strong_scalar_grad(dcoll, dd, vec):
     from grudge.geometry import inverse_surface_metric_derivative_mat
 
-    discr = dcoll.discr_from_dd(dof_desc.DD_VOLUME)
+    discr = dcoll.discr_from_dd(dd)
     actx = vec.array_context
 
-    inverse_jac_mat = inverse_surface_metric_derivative_mat(actx, dcoll,
+    inverse_jac_mat = inverse_surface_metric_derivative_mat(actx, dcoll, dd=dd,
             _use_geoderiv_connection=actx.supports_nonscalar_broadcasting)
     return _gradient_kernel(actx, discr, discr,
             _reference_derivative_matrices, inverse_jac_mat, vec,
@@ -285,7 +290,7 @@ def _strong_scalar_grad(dcoll, dd_in, vec):
 
 
 def local_grad(
-        dcoll: DiscretizationCollection, vec, *, nested=False) -> ArrayOrContainerT:
+        dcoll: DiscretizationCollection, *args, nested=False) -> ArrayOrContainerT:
     r"""Return the element-local gradient of a function :math:`f` represented
     by *vec*:
 
@@ -294,20 +299,23 @@ def local_grad(
         \nabla|_E f = \left(
             \partial_x|_E f, \partial_y|_E f, \partial_z|_E f \right)
 
+    May be called with ``(vec)`` or ``(dd, vec)``.
+
     :arg vec: a :class:`~meshmode.dof_array.DOFArray` or an
         :class:`~arraycontext.container.ArrayContainer` of them.
+    :arg dd: a :class:`~grudge.dof_desc.DOFDesc`, or a value convertible to one.
+        Defaults to the base volume discretization if not provided.
     :arg nested: return nested object arrays instead of a single multidimensional
         array if *vec* is non-scalar.
     :returns: an object array (possibly nested) of
         :class:`~meshmode.dof_array.DOFArray`\ s or
         :class:`~arraycontext.container.ArrayContainer`\ of object arrays.
     """
-
-    return _grad_helper(dcoll, _strong_scalar_grad, vec, nested=nested)
+    return _grad_helper(dcoll, _strong_scalar_grad, *args, nested=nested)
 
 
 def local_d_dx(
-        dcoll: DiscretizationCollection, xyz_axis, vec) -> ArrayOrContainerT:
+        dcoll: DiscretizationCollection, xyz_axis, *args) -> ArrayOrContainerT:
     r"""Return the element-local derivative along axis *xyz_axis* of a
     function :math:`f` represented by *vec*:
 
@@ -315,22 +323,34 @@ def local_d_dx(
 
         \frac{\partial f}{\partial \lbrace x,y,z\rbrace}\Big|_E
 
+    May be called with ``(vec)`` or ``(dd, vec)``.
+
     :arg xyz_axis: an integer indicating the axis along which the derivative
         is taken.
+    :arg dd: a :class:`~grudge.dof_desc.DOFDesc`, or a value convertible to one.
+        Defaults to the base volume discretization if not provided.
     :arg vec: a :class:`~meshmode.dof_array.DOFArray` or an
         :class:`~arraycontext.container.ArrayContainer` of them.
     :returns: a :class:`~meshmode.dof_array.DOFArray` or an
         :class:`~arraycontext.container.ArrayContainer` of them.
     """
-    if not isinstance(vec, DOFArray):
-        return map_array_container(partial(local_d_dx, dcoll, xyz_axis), vec)
+    if len(args) == 1:
+        vec, = args
+        dd = DD_VOLUME_ALL
+    elif len(args) == 2:
+        dd, vec = args
+    else:
+        raise TypeError("invalid number of arguments")
 
-    discr = dcoll.discr_from_dd(dof_desc.DD_VOLUME)
+    if not isinstance(vec, DOFArray):
+        return map_array_container(partial(local_d_dx, dcoll, xyz_axis, dd), vec)
+
+    discr = dcoll.discr_from_dd(dd)
     actx = vec.array_context
 
     from grudge.geometry import inverse_surface_metric_derivative_mat
-    inverse_jac_mat = inverse_surface_metric_derivative_mat(actx, dcoll,
-            _use_geoderiv_connection=actx.supports_nonscalar_broadcasting)
+    inverse_jac_mat = inverse_surface_metric_derivative_mat(actx, dcoll, dd=dd,
+        _use_geoderiv_connection=actx.supports_nonscalar_broadcasting)
 
     return _single_axis_derivative_kernel(
         actx, discr, discr,
@@ -338,7 +358,7 @@ def local_d_dx(
         metric_in_matvec=False)
 
 
-def local_div(dcoll: DiscretizationCollection, vecs) -> ArrayOrContainerT:
+def local_div(dcoll: DiscretizationCollection, *args) -> ArrayOrContainerT:
     r"""Return the element-local divergence of the vector function
     :math:`\mathbf{f}` represented by *vecs*:
 
@@ -346,6 +366,10 @@ def local_div(dcoll: DiscretizationCollection, vecs) -> ArrayOrContainerT:
 
         \nabla|_E \cdot \mathbf{f} = \sum_{i=1}^d \partial_{x_i}|_E \mathbf{f}_i
 
+    May be called with ``(vec)`` or ``(dd, vec)``.
+
+    :arg dd: a :class:`~grudge.dof_desc.DOFDesc`, or a value convertible to one.
+        Defaults to the base volume discretization if not provided.
     :arg vecs: an object array of
         :class:`~meshmode.dof_array.DOFArray`\s or an
         :class:`~arraycontext.container.ArrayContainer` object
@@ -356,8 +380,8 @@ def local_div(dcoll: DiscretizationCollection, vecs) -> ArrayOrContainerT:
     """
     return _div_helper(
         dcoll,
-        lambda dd, i, subvec: local_d_dx(dcoll, i, subvec),
-        vecs)
+        lambda dd, i, subvec: local_d_dx(dcoll, i, dd, subvec),
+        *args)
 
 # }}}
 
@@ -413,9 +437,10 @@ def _weak_scalar_grad(dcoll, dd_in, vec):
     from grudge.geometry import inverse_surface_metric_derivative_mat
 
     in_discr = dcoll.discr_from_dd(dd_in)
-    out_discr = dcoll.discr_from_dd(dof_desc.DD_VOLUME)
+    out_discr = dcoll.discr_from_dd(dd_in.with_discr_tag(DISCR_TAG_BASE))
 
     actx = vec.array_context
+    # TODO: Figure out if this should be dd=dd_in or dd=dd_out
     inverse_jac_mat = inverse_surface_metric_derivative_mat(actx, dcoll, dd=dd_in,
             times_area_element=True,
             _use_geoderiv_connection=actx.supports_nonscalar_broadcasting)
@@ -483,7 +508,7 @@ def weak_local_d_dx(dcoll: DiscretizationCollection, *args) -> ArrayOrContainerT
     """
     if len(args) == 2:
         xyz_axis, vec = args
-        dd_in = dof_desc.DOFDesc("vol", dof_desc.DISCR_TAG_BASE)
+        dd_in = dof_desc.DD_VOLUME_ALL
     elif len(args) == 3:
         dd_in, xyz_axis, vec = args
     else:
@@ -498,7 +523,7 @@ def weak_local_d_dx(dcoll: DiscretizationCollection, *args) -> ArrayOrContainerT
     from grudge.geometry import inverse_surface_metric_derivative_mat
 
     in_discr = dcoll.discr_from_dd(dd_in)
-    out_discr = dcoll.discr_from_dd(dof_desc.DD_VOLUME)
+    out_discr = dcoll.discr_from_dd(dd_in.with_discr_tag(DISCR_TAG_BASE))
 
     actx = vec.array_context
     inverse_jac_mat = inverse_surface_metric_derivative_mat(actx, dcoll, dd=dd_in,
@@ -633,7 +658,7 @@ def mass(dcoll: DiscretizationCollection, *args) -> ArrayOrContainerT:
     *vec* being an :class:`~arraycontext.container.ArrayContainer`,
     the mass operator is applied component-wise.
 
-    May be called with ``(vec)`` or ``(dd, vec)``.
+    May be called with ``(vec)`` or ``(dd_in, vec)``.
 
     Specifically, this function applies the mass matrix elementwise on a
     vector of coefficients :math:`\mathbf{f}` via:
@@ -645,7 +670,7 @@ def mass(dcoll: DiscretizationCollection, *args) -> ArrayOrContainerT:
 
     where :math:`\phi_i` are local polynomial basis functions on :math:`E`.
 
-    :arg dd: a :class:`~grudge.dof_desc.DOFDesc`, or a value convertible to one.
+    :arg dd_in: a :class:`~grudge.dof_desc.DOFDesc`, or a value convertible to one.
         Defaults to the base volume discretization if not provided.
     :arg vec: a :class:`~meshmode.dof_array.DOFArray` or an
         :class:`~arraycontext.container.ArrayContainer` of them.
@@ -655,13 +680,15 @@ def mass(dcoll: DiscretizationCollection, *args) -> ArrayOrContainerT:
 
     if len(args) == 1:
         vec, = args
-        dd = dof_desc.DOFDesc("vol", dof_desc.DISCR_TAG_BASE)
+        dd_in = dof_desc.DD_VOLUME_ALL
     elif len(args) == 2:
-        dd, vec = args
+        dd_in, vec = args
     else:
         raise TypeError("invalid number of arguments")
 
-    return _apply_mass_operator(dcoll, dof_desc.DD_VOLUME, dd, vec)
+    dd_out = dd_in.with_discr_tag(DISCR_TAG_BASE)
+
+    return _apply_mass_operator(dcoll, dd_out, dd_in, vec)
 
 # }}}
 
@@ -727,7 +754,7 @@ def _apply_inverse_mass_operator(
     return DOFArray(actx, data=tuple(group_data))
 
 
-def inverse_mass(dcoll: DiscretizationCollection, vec) -> ArrayOrContainerT:
+def inverse_mass(dcoll: DiscretizationCollection, *args) -> ArrayOrContainerT:
     r"""Return the action of the DG mass matrix inverse on a vector
     (or vectors) of :class:`~meshmode.dof_array.DOFArray`\ s, *vec*.
     In the case of *vec* being an :class:`~arraycontext.container.ArrayContainer`,
@@ -757,15 +784,24 @@ def inverse_mass(dcoll: DiscretizationCollection, vec) -> ArrayOrContainerT:
     where :math:`\widehat{\mathbf{M}}` is the reference mass matrix on
     :math:`\widehat{E}`.
 
+    May be called with ``(vec)`` or ``(dd, vec)``.
+
     :arg vec: a :class:`~meshmode.dof_array.DOFArray` or an
         :class:`~arraycontext.container.ArrayContainer` of them.
+    :arg dd: a :class:`~grudge.dof_desc.DOFDesc`, or a value convertible to one.
+        Defaults to the base volume discretization if not provided.
     :returns: a :class:`~meshmode.dof_array.DOFArray` or an
         :class:`~arraycontext.container.ArrayContainer` like *vec*.
     """
+    if len(args) == 1:
+        vec, = args
+        dd = DD_VOLUME_ALL
+    elif len(args) == 2:
+        dd, vec = args
+    else:
+        raise TypeError("invalid number of arguments")
 
-    return _apply_inverse_mass_operator(
-        dcoll, dof_desc.DD_VOLUME, dof_desc.DD_VOLUME, vec
-    )
+    return _apply_inverse_mass_operator(dcoll, dd, dd, vec)
 
 # }}}
 
@@ -858,21 +894,25 @@ def reference_face_mass_matrix(
     return get_ref_face_mass_mat(face_element_group, vol_element_group)
 
 
-def _apply_face_mass_operator(dcoll: DiscretizationCollection, dd, vec):
+def _apply_face_mass_operator(dcoll: DiscretizationCollection, dd_in, vec):
     if not isinstance(vec, DOFArray):
         return map_array_container(
-            partial(_apply_face_mass_operator, dcoll, dd), vec
+            partial(_apply_face_mass_operator, dcoll, dd_in), vec
         )
 
     from grudge.geometry import area_element
 
-    volm_discr = dcoll.discr_from_dd(dof_desc.DD_VOLUME)
-    face_discr = dcoll.discr_from_dd(dd)
+    dd_out = DOFDesc(
+        VolumeDomainTag(dd_in.domain_tag.volume_tag),
+        DISCR_TAG_BASE)
+
+    volm_discr = dcoll.discr_from_dd(dd_out)
+    face_discr = dcoll.discr_from_dd(dd_in)
     dtype = vec.entry_dtype
     actx = vec.array_context
 
     assert len(face_discr.groups) == len(volm_discr.groups)
-    surf_area_elements = area_element(actx, dcoll, dd=dd,
+    surf_area_elements = area_element(actx, dcoll, dd=dd_in,
             _use_geoderiv_connection=actx.supports_nonscalar_broadcasting)
 
     return DOFArray(
@@ -918,7 +958,7 @@ def face_mass(dcoll: DiscretizationCollection, *args) -> ArrayOrContainerT:
     *vec* being an arbitrary :class:`~arraycontext.container.ArrayContainer`,
     the face mass operator is applied component-wise.
 
-    May be called with ``(vec)`` or ``(dd, vec)``.
+    May be called with ``(vec)`` or ``(dd_in, vec)``.
 
     Specifically, this function applies the face mass matrix elementwise on a
     vector of coefficients :math:`\mathbf{f}` as the sum of contributions for
@@ -949,13 +989,13 @@ def face_mass(dcoll: DiscretizationCollection, *args) -> ArrayOrContainerT:
 
     if len(args) == 1:
         vec, = args
-        dd = dof_desc.DOFDesc("all_faces", dof_desc.DISCR_TAG_BASE)
+        dd_in = DD_VOLUME_ALL.trace(FACE_RESTR_ALL)
     elif len(args) == 2:
-        dd, vec = args
+        dd_in, vec = args
     else:
         raise TypeError("invalid number of arguments")
 
-    return _apply_face_mass_operator(dcoll, dd, vec)
+    return _apply_face_mass_operator(dcoll, dd_in, vec)
 
 # }}}
 

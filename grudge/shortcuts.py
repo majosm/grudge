@@ -22,6 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 
+from grudge.dof_desc import DD_VOLUME_ALL
+
 
 def rk4_step(y, t, h, f):
     k1 = f(t, y)
@@ -47,11 +49,14 @@ def set_up_rk4(field_var_name, dt, fields, rhs, t_start=0.0):
     return dt_stepper
 
 
-def make_visualizer(dcoll, vis_order=None, **kwargs):
+def make_visualizer(dcoll, vis_order=None, volume_dd=None, **kwargs):
     from meshmode.discretization.visualization import make_visualizer
+    if volume_dd is None:
+        volume_dd = DD_VOLUME_ALL
+
     return make_visualizer(
             dcoll._setup_actx,
-            dcoll.discr_from_dd("vol"), vis_order, **kwargs)
+            dcoll.discr_from_dd(volume_dd), vis_order, **kwargs)
 
 
 def make_boundary_visualizer(dcoll, vis_order=None, **kwargs):
