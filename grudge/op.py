@@ -715,7 +715,9 @@ def _apply_inverse_mass_operator(
             # true_Minv ~ ref_Minv * ref_M * (1/jac_det) * ref_Minv
             actx.einsum("ei,ij,ej->ei",
                         jac_inv,
-                        ref_mass_inverse,
+                        actx.tag_axis(0,
+                            DiscretizationDOFAxisTag(),
+                            ref_mass_inverse),
                         vec_i,
                         tagged=(FirstAxisIsElementsTag(),))
         )
