@@ -158,6 +158,12 @@ def nodal_sum_loc(dcoll: DiscretizationCollection, dd, vec) -> Scalar:
         for grp_ary in vec])
 
 
+def _count_dofs(vec):
+    if not isinstance(vec, DOFArray):
+        return sum(_count_dofs(comp) for _, comp in serialize_container(vec))
+    return sum(grp_ary.size for grp_ary in vec)
+
+
 def nodal_min(dcoll: DiscretizationCollection, dd, vec, *, initial=None) -> Scalar:
     r"""Return the nodal minimum of a vector of degrees of freedom *vec*.
 
@@ -176,10 +182,22 @@ def nodal_min(dcoll: DiscretizationCollection, dd, vec, *, initial=None) -> Scal
     from mpi4py import MPI
     actx = vec.array_context
 
-    return actx.from_numpy(
+    # Use an initial value in local reductions even if the user doesn't pass one;
+    # allows the global reduction to work even if some ranks have empty partitions
+    no_initial = initial is None
+    if no_initial:
+        initial = actx.from_numpy(np.array(np.inf))
+
+    result = actx.from_numpy(
         comm.allreduce(
             actx.to_numpy(nodal_min_loc(dcoll, dd, vec, initial=initial)),
             op=MPI.MIN))
+    if no_initial and result == initial:
+        # Make sure it's not true by coincidence
+        global_node_count = comm.allreduce(_count_dofs(vec), op=MPI.SUM)
+        if global_node_count == 0:
+            raise ValueError("must set an initial value for empty nodal minimum")
+    return result
 
 
 def nodal_min_loc(
@@ -239,10 +257,22 @@ def nodal_max(dcoll: DiscretizationCollection, dd, vec, *, initial=None) -> Scal
     from mpi4py import MPI
     actx = vec.array_context
 
-    return actx.from_numpy(
+    # Use an initial value in local reductions even if the user doesn't pass one;
+    # allows the global reduction to work even if some ranks have empty partitions
+    no_initial = initial is None
+    if no_initial:
+        initial = actx.from_numpy(np.array(-np.inf))
+
+    result = actx.from_numpy(
         comm.allreduce(
             actx.to_numpy(nodal_max_loc(dcoll, dd, vec, initial=initial)),
             op=MPI.MAX))
+    if no_initial and result == initial:
+        # Make sure it's not true by coincidence
+        global_node_count = comm.allreduce(_count_dofs(vec), op=MPI.SUM)
+        if global_node_count == 0:
+            raise ValueError("must set an initial value for empty nodal maximum")
+    return result
 
 
 def nodal_max_loc(
