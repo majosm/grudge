@@ -155,9 +155,15 @@ def nodal_sum_loc(dcoll: DiscretizationCollection, dd, vec) -> Scalar:
 
     actx = vec.array_context
 
-    return sum([
-        actx.np.sum(grp_ary) if grp_ary.size else actx.from_numpy(np.array(0.))
-        for grp_ary in vec])
+    def get_group_result(grp_ary):
+        if not grp_ary.size:
+            return actx.from_numpy(np.array(0.))
+        result = actx.np.sum(grp_ary)
+        if not isinstance(result, actx.array_types):
+            result = actx.from_numpy(np.array(result))
+        return result
+
+    return sum([get_group_result(grp_ary) for grp_ary in vec])
 
 
 def nodal_min(dcoll: DiscretizationCollection, dd, vec, *, initial=None) -> Scalar:
@@ -210,10 +216,18 @@ def nodal_min_loc(
     if np.isscalar(initial):
         initial = actx.from_numpy(np.array(initial))
 
+    def get_group_result(grp_ary):
+        if not grp_ary.size:
+            return initial
+        result = actx.np.min(grp_ary)
+        if not isinstance(result, actx.array_types):
+            result = actx.from_numpy(np.array(result))
+        return result
+
     return reduce(
             lambda acc, grp_ary: actx.np.minimum(
                 acc,
-                actx.np.min(grp_ary) if grp_ary.size else initial),
+                get_group_result(grp_ary)),
             vec, initial)
 
 
@@ -267,10 +281,18 @@ def nodal_max_loc(
     if np.isscalar(initial):
         initial = actx.from_numpy(np.array(initial))
 
+    def get_group_result(grp_ary):
+        if not grp_ary.size:
+            return initial
+        result = actx.np.max(grp_ary)
+        if not isinstance(result, actx.array_types):
+            result = actx.from_numpy(np.array(result))
+        return result
+
     return reduce(
             lambda acc, grp_ary: actx.np.maximum(
                 acc,
-                actx.np.max(grp_ary) if grp_ary.size > 0 else initial),
+                get_group_result(grp_ary)),
             vec, initial)
 
 
