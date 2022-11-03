@@ -239,7 +239,8 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         self.actx._compile_trace_callback(self.f, "pre_find_distributed_partition",
                 dict_of_named_arrays)
 
-        distributed_partition = pt.find_distributed_partition(dict_of_named_arrays)
+        distributed_partition = pt.find_distributed_partition(
+            self.actx.mpi_communicator.rank, dict_of_named_arrays)
 
         self.actx._compile_trace_callback(self.f, "post_find_distributed_partition",
                 distributed_partition)
