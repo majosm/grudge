@@ -173,7 +173,7 @@ class _DistributedPartProgramID:
     part_id: Any
 
     def __str__(self):
-        name = self.f.__name__
+        name = getattr(self.f, "__name__", "<anonymous>")
         if not name.isidentifier():
             name = _to_identifier(name)
 
@@ -263,6 +263,10 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
             mpi_communicator.Barrier()
         if mpi_communicator.rank == 0:
             print("", flush=True)
+
+        if __debug__:
+            pt.verify_distributed_partition(
+                self.actx.mpi_communicator, distributed_partition)
 
         self.actx._compile_trace_callback(self.f, "post_find_distributed_partition",
                 distributed_partition)
@@ -553,16 +557,15 @@ def _get_single_grid_pytato_actx_class(distributed: bool) -> Type[ArrayContext]:
     # lazy, non-distributed
     if not distributed:
         if _HAVE_SINGLE_GRID_WORK_BALANCING:
-            actx_class = SingleGridWorkBalancingPytatoArrayContext
+            return SingleGridWorkBalancingPytatoArrayContext
         else:
-            actx_class = PytatoPyOpenCLArrayContext
-    # distributed+lazy:
-    if _HAVE_SINGLE_GRID_WORK_BALANCING:
-        actx_class = MPISingleGridWorkBalancingPytatoArrayContext
+            return PytatoPyOpenCLArrayContext
     else:
-        actx_class = MPIBasePytatoPyOpenCLArrayContext
-
-    return actx_class
+        # distributed+lazy:
+        if _HAVE_SINGLE_GRID_WORK_BALANCING:
+            return MPISingleGridWorkBalancingPytatoArrayContext
+        else:
+            return MPIBasePytatoPyOpenCLArrayContext
 
 
 def get_reasonable_array_context_class(
