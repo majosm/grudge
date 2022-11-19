@@ -252,11 +252,11 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
                 for ipart, part in enumerate(distributed_partition.parts.values()):
                     print(f"{rank}: part {ipart} (pid {part.pid})", flush=True)
                     print(f"{rank}: * needs pids {part.needed_pids}", flush=True)
-                    for _, recv in part.input_name_to_recv_node.items():
-                        print(f"{rank}: * recv {recv.comm_tag} from {recv.src_rank}", flush=True)
+                    for name, recv in part.input_name_to_recv_node.items():
+                        print(f"{rank}: * recv {name}, {recv.comm_tag} from {recv.src_rank}", flush=True)
                     print(f"{rank}: * execute", flush=True)
-                    for _, send in part.output_name_to_send_node.items():
-                        print(f"{rank}: * send {send.comm_tag} to {send.dest_rank}", flush=True)
+                    for name, send in part.output_name_to_send_node.items():
+                        print(f"{rank}: * send {name}, {send.comm_tag} to {send.dest_rank}", flush=True)
                 print("", flush=True)
             from time import sleep
             sleep(1)
