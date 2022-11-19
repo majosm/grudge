@@ -184,6 +184,34 @@ class _DistributedPartProgramID:
             return name
 
 
+def write_dag(dict_of_named_arrays, file_path):
+    from pytools import UniqueNameGenerator
+    vng = UniqueNameGenerator()
+
+    import pytato as pt
+
+    def make_dws_placeholder(expr: pt.transform.ArrayOrNames
+                             ) -> pt.transform.ArrayOrNames:
+        if isinstance(expr, pt.DataWrapper):
+            return pt.make_placeholder(vng("_pt_ph"),
+                                       expr.shape, expr.dtype)
+        else:
+            return expr
+
+    dict_of_named_arrays_no_data = pt.transform.map_and_copy(
+        dict_of_named_arrays, make_dws_placeholder)
+
+    import pickle
+    with open(file_path, "wb") as f:
+        pickle.dump(dict_of_named_arrays_no_data, f)
+
+
+def read_dag(file_path):
+    import pickle
+    with open(file_path, "rb") as f:
+        return pickle.load(f)
+
+
 class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         LazilyPyOpenCLCompilingFunctionCaller):
     def _dag_to_compiled_func(self, dict_of_named_arrays,
@@ -238,6 +266,9 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
 
         self.actx._compile_trace_callback(self.f, "pre_find_distributed_partition",
                 dict_of_named_arrays)
+
+        if self.actx.mpi_communicator.rank in (11, 12):
+            write_dag(dict_of_named_arrays, f"dag_{self.actx.mpi_communicator.rank}.pkl")
 
         distributed_partition = pt.find_distributed_partition(
             self.actx.mpi_communicator.rank, dict_of_named_arrays)
