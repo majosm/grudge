@@ -239,7 +239,20 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         self.actx._compile_trace_callback(self.f, "pre_find_distributed_partition",
                 dict_of_named_arrays)
 
-        distributed_partition = pt.find_distributed_partition(dict_of_named_arrays)
+        try:
+            distributed_partition = pt.find_distributed_partition(
+                                        dict_of_named_arrays)
+        except TypeError:
+            # https://github.com/inducer/pytato/pull/393 changes the
+            # function signature
+            # pylint: disable=too-many-function-args
+            distributed_partition = pt.find_distributed_partition(
+                                        # pylint-ignore-reason:
+                                        # '_BasePytatoArrayContext' has no
+                                        # 'mpi_communicator' member
+                                        # pylint: disable=no-member
+                                        self.actx.mpi_communicator,
+                                        dict_of_named_arrays)
 
         if __debug__:
             # pylint-ignore-reason:
