@@ -232,21 +232,12 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         self.actx._compile_trace_callback(self.f, "pre_find_distributed_partition",
                 dict_of_named_arrays)
 
-        # https://github.com/inducer/pytato/pull/393 changes the function signature
-        try:
-            # pylint: disable=too-many-function-args
-            distributed_partition = pt.find_distributed_partition(
-                # pylint-ignore-reason:
-                # '_BasePytatoArrayContext' has no
-                # 'mpi_communicator' member
-                # pylint: disable=no-member
-                self.actx.mpi_communicator, dict_of_named_arrays)
-        except TypeError as e:
-            if "find_distributed_partition() takes 1 positional" in str(e):
-                distributed_partition = pt.find_distributed_partition(
-                    dict_of_named_arrays)
-            else:
-                raise
+        distributed_partition = pt.find_distributed_partition(
+            # pylint-ignore-reason:
+            # '_BasePytatoArrayContext' has no
+            # 'mpi_communicator' member
+            # pylint: disable=no-member
+            self.actx.mpi_communicator, dict_of_named_arrays)
 
         if __debug__:
             # pylint-ignore-reason:
@@ -290,7 +281,7 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         from pytato import DictOfNamedArrays
         for part in distributed_partition.parts.values():
             d = DictOfNamedArrays(
-                        {var_name: distributed_partition.var_name_to_result[var_name]
+                        {var_name: distributed_partition.name_to_output[var_name]
                             for var_name in part.output_names
                          })
             (
