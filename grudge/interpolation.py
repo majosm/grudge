@@ -36,13 +36,16 @@ import numpy as np
 
 from arraycontext import (
     ArrayContext,
-    map_array_container
+    map_array_container,
+    tag_axes
 )
 from arraycontext import ArrayOrContainerT
 
 from functools import partial
 
-from meshmode.transform_metadata import FirstAxisIsElementsTag
+from meshmode.transform_metadata import (
+    FirstAxisIsElementsTag,
+    DiscretizationDOFAxisTag)
 
 from grudge.discretization import DiscretizationCollection
 from grudge.dof_desc import DOFDesc
@@ -80,7 +83,11 @@ def volume_quadrature_interpolation_matrix(
         vdm_inv = np.linalg.inv(vandermonde(basis.functions,
                                             base_grp.unit_nodes))
         vdm_q = vandermonde(basis.functions, vol_quad_grp.unit_nodes) @ vdm_inv
-        return actx.freeze(actx.from_numpy(vdm_q))
+        return actx.freeze(
+            tag_axes(actx, {
+                    0: DiscretizationDOFAxisTag(),
+                    1: DiscretizationDOFAxisTag()},
+                actx.from_numpy(vdm_q)))
 
     return get_volume_vand(base_element_group, vol_quad_element_group)
 
@@ -112,7 +119,11 @@ def surface_quadrature_interpolation_matrix(
                 axis=1
             )
         vdm_f = vandermonde(basis.functions, surface_nodes) @ vdm_inv
-        return actx.freeze(actx.from_numpy(vdm_f))
+        return actx.freeze(
+            tag_axes(actx, {
+                    0: DiscretizationDOFAxisTag(),
+                    1: DiscretizationDOFAxisTag()},
+                actx.from_numpy(vdm_f)))
 
     return get_surface_vand(base_element_group, face_quad_element_group)
 
@@ -137,7 +148,11 @@ def volume_and_surface_interpolation_matrix(
                 actx,
                 base_element_group=base_grp,
                 face_quad_element_group=face_quad_grp))
-        return actx.freeze(actx.from_numpy(np.block([[vq_mat], [vf_mat]])))
+        return actx.freeze(
+            tag_axes(actx, {
+                    0: DiscretizationDOFAxisTag(),
+                    1: DiscretizationDOFAxisTag()},
+                actx.from_numpy(np.block([[vq_mat], [vf_mat]]))))
 
     return get_vol_surf_interpolation_matrix(
         base_element_group, vol_quad_element_group, face_quad_element_group

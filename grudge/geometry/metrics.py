@@ -533,22 +533,21 @@ def inverse_surface_metric_derivative_mat(
         else:
             multiplier = 1
 
-        mat = actx.np.stack([
+        mat = actx.tag_axis(0, DiscretizationAmbientDimAxisTag(),
             actx.np.stack([
-                multiplier
-                * inverse_surface_metric_derivative(
-                    actx, dcoll,
-                    rst_axis, xyz_axis, dd=dd,
-                    _use_geoderiv_connection=_use_geoderiv_connection)
-                for rst_axis in range(dcoll.dim)])
-            for xyz_axis in range(dcoll.ambient_dim)])
+                actx.tag_axis(0, DiscretizationTopologicalDimAxisTag(),
+                    actx.np.stack([
+                        multiplier
+                        * inverse_surface_metric_derivative(
+                            actx, dcoll,
+                            rst_axis, xyz_axis, dd=dd,
+                            _use_geoderiv_connection=_use_geoderiv_connection)
+                        for rst_axis in range(dcoll.dim)]))
+                for xyz_axis in range(dcoll.ambient_dim)]))
 
         return actx.freeze(
                 actx.tag(NameHint(f"inv_metric_deriv_{dd.as_identifier()}"),
-                    tag_axes(actx, {
-                        0: DiscretizationAmbientDimAxisTag(),
-                        1: DiscretizationTopologicalDimAxisTag()},
-                        mat)))
+                    mat))
 
     return actx.thaw(_inv_surf_metric_deriv())
 

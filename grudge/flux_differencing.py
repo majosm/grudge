@@ -34,13 +34,18 @@ THE SOFTWARE.
 from arraycontext import (
     ArrayContext,
     map_array_container,
-    freeze
+    freeze,
+    tag_axes
 )
 from arraycontext import ArrayOrContainer
 
 from functools import partial
 
-from meshmode.transform_metadata import FirstAxisIsElementsTag
+from meshmode.transform_metadata import (
+    FirstAxisIsElementsTag,
+    DiscretizationAmbientDimAxisTag,
+    DiscretizationTopologicalDimAxisTag,
+    DiscretizationDOFAxisTag)
 from meshmode.dof_array import DOFArray
 
 from grudge.discretization import DiscretizationCollection
@@ -127,7 +132,12 @@ def _reference_skew_symmetric_hybridized_sbp_operators(
 
         # }}}
 
-        return actx.freeze(actx.from_numpy(q_skew_hybridized))
+        return actx.freeze(
+            tag_axes(actx, {
+                    0: DiscretizationTopologicalDimAxisTag(),
+                    1: DiscretizationDOFAxisTag(),
+                    2: DiscretizationDOFAxisTag()},
+                actx.from_numpy(q_skew_hybridized)))
 
     return get_reference_skew_symetric_hybridized_diff_mats(
         base_element_group,
@@ -167,24 +177,19 @@ def _single_axis_hybridized_derivative_kernel(
             (_single_axis_hybridized_derivative_kernel, dd_quad, dd_face_quad))
         def _inv_surf_metric_deriv():
             return freeze(
-                actx.np.stack(
-                    [
-                        actx.np.stack(
-                            [
+                actx.tag_axis(0, DiscretizationAmbientDimAxisTag(),
+                    actx.np.stack([
+                        actx.tag_axis(0, DiscretizationTopologicalDimAxisTag(),
+                            actx.np.stack([
                                 volume_and_surface_quadrature_interpolation(
                                     dcoll, dd_quad, dd_face_quad,
                                     area_element(actx, dcoll, dd=dd_vol)
                                     * inverse_surface_metric_derivative(
                                         actx, dcoll,
                                         rst_ax, xyz_axis, dd=dd_vol
-                                    )
-                                ) for rst_ax in range(dcoll.dim)
-                            ]
-                        ) for xyz_axis in range(dcoll.ambient_dim)
-                    ]
-                ),
-                actx
-            )
+                                    ))
+                                for rst_ax in range(dcoll.dim)]))
+                        for xyz_axis in range(dcoll.ambient_dim)])), actx)
         return _inv_surf_metric_deriv()
 
     return DOFArray(
@@ -198,7 +203,8 @@ def _single_axis_hybridized_derivative_kernel(
                             vol_quad_element_group=qvgrp,
                             face_quad_element_group=qafgrp
                         ),
-                        ijm_i[xyz_axis],
+                        actx.tag_axis(2, DiscretizationDOFAxisTag(),
+                            ijm_i[xyz_axis]),
                         _reference_skew_symmetric_hybridized_sbp_operators(
                             actx,
                             bgrp,

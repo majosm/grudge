@@ -67,7 +67,8 @@ from arraycontext import (
     get_container_context_recursively_opt,
     to_numpy,
     from_numpy,
-    ArrayOrContainer
+    ArrayOrContainer,
+    tag_axes
 )
 
 from dataclasses import dataclass
@@ -80,6 +81,9 @@ from grudge.discretization import DiscretizationCollection, PartID
 from grudge.projection import project
 
 from meshmode.mesh import BTAG_PARTITION
+from meshmode.transform_metadata import (
+    DiscretizationElementAxisTag,
+    DiscretizationDOFAxisTag)
 
 import numpy as np
 
@@ -629,7 +633,11 @@ class _RankBoundaryCommunicationEager:
                 # NOTE: Assumes that the same number is passed on every rank
                 return remote_subary_template
             else:
-                return from_numpy(self.recv_data[key], self.array_context)
+                return from_numpy(
+                    tag_axes(actx, {
+                            0: DiscretizationElementAxisTag(),
+                            1: DiscretizationDOFAxisTag()},
+                        self.recv_data[key], self.array_context))
 
         from arraycontext.container.traversal import rec_keyed_map_array_container
         unswapped_remote_bdry_data = rec_keyed_map_array_container(

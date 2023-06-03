@@ -39,7 +39,7 @@ from numbers import Number
 
 import numpy as np
 
-from arraycontext import ArrayOrContainer, map_array_container
+from arraycontext import ArrayOrContainer, map_array_container, tag_axes
 
 from grudge.discretization import DiscretizationCollection
 from grudge.dof_desc import (
@@ -49,7 +49,9 @@ from grudge.dof_desc import (
     ConvertibleToDOFDesc)
 
 from meshmode.dof_array import DOFArray
-from meshmode.transform_metadata import FirstAxisIsElementsTag
+from meshmode.transform_metadata import (
+    FirstAxisIsElementsTag,
+    DiscretizationDOFAxisTag)
 
 from pytools import keyed_memoize_in
 
@@ -133,7 +135,11 @@ def volume_quadrature_project(
             )
         )
         weights = np.diag(vol_quad_grp.quadrature_rule().weights)
-        return actx.freeze(actx.from_numpy(vdm_q.T @ weights))
+        return actx.freeze(
+            tag_axes(actx, {
+                    0: DiscretizationDOFAxisTag(),
+                    1: DiscretizationDOFAxisTag()},
+                actx.from_numpy(vdm_q.T @ weights)))
 
     return inverse_mass(
         dcoll,
