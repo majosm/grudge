@@ -195,12 +195,26 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
 
         from pytools import ProcessLogger
 
+        from mpi4py import MPI
+#         from pytato.tags import CreatedAt
+        if MPI.COMM_WORLD.rank == 0:
+            for name, ary in dict_of_named_arrays._data.items():
+#                 created_at_tag, = ary.tags_of_type(CreatedAt)
+                print(f"_dag_to_compiled_func 1: {name=}, {hash(ary)=}")
+#                 print(f"_dag_to_compiled_func 1: {name=}, {created_at_tag.traceback=}")
+
         self.actx._compile_trace_callback(self.f, "pre_deduplicate_data_wrappers",
                 dict_of_named_arrays)
 
         with ProcessLogger(logger, "deduplicate_data_wrappers[pre-partition]"):
             dict_of_named_arrays = pt.transform.deduplicate_data_wrappers(
                 dict_of_named_arrays)
+
+        if MPI.COMM_WORLD.rank == 0:
+            for name, ary in dict_of_named_arrays._data.items():
+#                 created_at_tag, = ary.tags_of_type(CreatedAt)
+                print(f"_dag_to_compiled_func 2: {name=}, {hash(ary)=}")
+#                 print(f"_dag_to_compiled_func 2: {name=}, {created_at_tag.traceback=}")
 
         self.actx._compile_trace_callback(self.f, "post_deduplicate_data_wrappers",
                 dict_of_named_arrays)
@@ -211,6 +225,12 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         with ProcessLogger(logger, "materialize_with_mpms[pre-partition]"):
             dict_of_named_arrays = pt.transform.materialize_with_mpms(
                 dict_of_named_arrays)
+
+        if MPI.COMM_WORLD.rank == 0:
+            for name, ary in dict_of_named_arrays._data.items():
+#                 created_at_tag, = ary.tags_of_type(CreatedAt)
+                print(f"_dag_to_compiled_func 3: {name=}, {hash(ary)=}")
+#                 print(f"_dag_to_compiled_func 3: {name=}, {created_at_tag.traceback=}")
 
         self.actx._compile_trace_callback(self.f, "post_materialize",
                 dict_of_named_arrays)
@@ -226,6 +246,12 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
                 dict_of_named_arrays,
                 tag_t=DiscretizationEntityAxisTag,
             )
+
+        if MPI.COMM_WORLD.rank == 0:
+            for name, ary in dict_of_named_arrays._data.items():
+#                 created_at_tag, = ary.tags_of_type(CreatedAt)
+                print(f"_dag_to_compiled_func 4: {name=}, {hash(ary)=}")
+#                 print(f"_dag_to_compiled_func 4: {name=}, {created_at_tag.traceback=}")
 
         self.actx._compile_trace_callback(self.f, "post_infer_axes_tags",
                 dict_of_named_arrays)

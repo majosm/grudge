@@ -903,6 +903,12 @@ def _set_up_inter_part_connections(
 
                 inter_part_conns.update(conns)
 
+    from mpi4py import MPI
+    if MPI.COMM_WORLD.rank == 3:
+        for part_id_pair, conn in inter_part_conns.items():
+            nelements = conn.from_discr.mesh.nelements
+            print(f"_set_up_inter_part_connections: {part_id_pair=}, {nelements=}")
+
     return inter_part_conns
 
 # }}}

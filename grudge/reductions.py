@@ -339,16 +339,22 @@ def _apply_elementwise_reduction(
     actx = vec.array_context
 
     if actx.supports_nonscalar_broadcasting:
+        result_before_reshape = getattr(actx.np, op_name)(vec[0], axis=1)
+        result_after_reshape = result_before_reshape.reshape(-1, 1)
+        result_after_tagging = tag_axes(actx, {
+                0: DiscretizationElementAxisTag(),
+                1: DiscretizationDOFAxisTag()},
+            result_after_reshape)
+
+        from mpi4py import MPI
+        if MPI.COMM_WORLD.rank == 0:
+            print(f"_apply_elementwise_reduction: {hash(result_before_reshape)=}")
+            print(f"_apply_elementwise_reduction: {hash(result_after_reshape)=}")
+            print(f"_apply_elementwise_reduction: {hash(result_after_tagging)=}")
+
         return DOFArray(
             actx,
-            data=tuple(
-                tag_axes(actx, {
-                        0: DiscretizationElementAxisTag(),
-                        1: DiscretizationDOFAxisTag()},
-                    getattr(actx.np, op_name)(vec_i, axis=1).reshape(-1, 1))
-                for vec_i in vec
-            )
-        )
+            data=(result_after_tagging,))
     else:
         @memoize_in(actx, (_apply_elementwise_reduction, dd,
                         "elementwise_%s_prg" % op_name))
@@ -502,9 +508,24 @@ def elementwise_integral(
     from grudge.op import _apply_mass_operator
 
     ones = dcoll.discr_from_dd(dd).zeros(vec.array_context) + 1.0
-    return elementwise_sum(
-        dcoll, dd, vec * _apply_mass_operator(dcoll, dd, dd, ones)
-    )
+    vols = _apply_mass_operator(dcoll, dd, dd, ones)
+    values = vec * vols
+    result = elementwise_sum(dcoll, dd, values)
+
+    from mpi4py import MPI
+    if MPI.COMM_WORLD.rank == 0:
+        print(f"elementwise_integral: {hash(ones[0])=}")
+        print(f"elementwise_integral: {hash(vols[0])=}")
+        print(f"elementwise_integral: {hash(values[0])=}")
+        print(f"elementwise_integral: {hash(result[0])=}")
+        print(f"elementwise_integral: {result[0].shape=}")
+        print(f"elementwise_integral: {result[0].newshape=}")
+        print(f"elementwise_integral: {result[0].order=}")
+        print(f"elementwise_integral: {hash(result[0].array)=}")
+        print(f"elementwise_integral: {hash(result[0].newshape)=}")
+        print(f"elementwise_integral: {hash(result[0].order)=}")
+
+    return result
 
 # }}}
 

@@ -274,6 +274,11 @@ def dt_geometric_factors(
         )
     )
 
+#     print(f"{cell_vols_orig[0].shape=}")
+#     print(f"{actx.supports_nonscalar_broadcasting=}")
+
+#     cell_vols = 1e-6*(volm_discr.zeros(actx) + 1)
+
     if dcoll.dim == 1:
         # Inscribed "circle" radius is half the cell size
         return actx.freeze(cell_vols/2)
@@ -289,9 +294,20 @@ def dt_geometric_factors(
         )
     )
 
+    from mpi4py import MPI
+    if MPI.COMM_WORLD.rank == 0:
+        print(f"dt_geometric_factors: {hash(face_areas[0])=}")
+
     if actx.supports_nonscalar_broadcasting:
         # Compute total surface area of an element by summing over the
         # individual face areas
+#         surface_areas1 = DOFArray(
+#             actx,
+#             data=tuple(
+#                 tag_axes(actx, {
+#                         0: DiscretizationElementAxisTag()},
+#                     1e-6*(actx.zeros(vgrp.nelements, np.float64) + 1))
+#                 for vgrp in volm_discr.groups))
         surface_areas = DOFArray(
             actx,
             data=tuple(
@@ -309,6 +325,21 @@ def dt_geometric_factors(
                     tagged=(FirstAxisIsElementsTag(),))
 
                 for vgrp, face_ae_i in zip(volm_discr.groups, face_areas)))
+        if MPI.COMM_WORLD.rank == 0:
+            print(f"dt_geometric_factors: {hash(surface_areas[0])=}")
+        for igrp, (vgrp, face_ae_i) in enumerate(zip(volm_discr.groups, face_areas)):
+            face_ae_i_reshaped = face_ae_i.reshape(
+                vgrp.mesh_el_group.nfaces,
+                vgrp.nelements,
+                face_ae_i.shape[-1])
+            if MPI.COMM_WORLD.rank == 0:
+                import sys
+                np.set_printoptions(threshold=sys.maxsize)
+                print(f"dt_geometric_factors: {igrp=}, {hash(face_ae_i)=}")
+                print(f"dt_geometric_factors: {igrp=}, {face_ae_i=}")
+                print(f"dt_geometric_factors: {igrp=}, {hash(face_ae_i_reshaped)=}")
+                print(f"dt_geometric_factors: {igrp=}, {face_ae_i_reshaped=}")
+
     else:
         surface_areas = DOFArray(
             actx,
@@ -334,16 +365,21 @@ def dt_geometric_factors(
             )
         )
 
+    result = DOFArray(actx,
+        data=tuple(
+            actx.einsum(
+                "e,ei->ei",
+                1/sae_i,
+                actx.tag_axis(1, DiscretizationDOFAxisTag(), cv_i),
+                tagged=(FirstAxisIsElementsTag(),)) * dcoll.dim  # Why dcoll.dim?
+            for cv_i, sae_i in zip(cell_vols, surface_areas)))
+
+    if MPI.COMM_WORLD.rank == 0:
+        print(f"dt_geometric_factors: {hash(result[0])=}")
+
     return actx.freeze(
             actx.tag(NameHint(f"dt_geometric_{dd.as_identifier()}"),
-                DOFArray(actx,
-                    data=tuple(
-                        actx.einsum(
-                            "e,ei->ei",
-                            1/sae_i,
-                            actx.tag_axis(1, DiscretizationDOFAxisTag(), cv_i),
-                            tagged=(FirstAxisIsElementsTag(),)) * dcoll.dim
-                        for cv_i, sae_i in zip(cell_vols, surface_areas)))))
+                result))
 
 # }}}
 

@@ -711,6 +711,9 @@ class _RankBoundaryCommunicationLazy:
                 return
             else:
                 ary_tag = (remote_part_id.volume_tag, comm_tag, key)
+                if local_part_id.rank == 0:
+                    print(f"send_single_array: {hash(ary_tag)=}")
+                    print(f"send_single_array: {ary_tag=}")
                 sends[key] = make_distributed_send(
                     local_subary, dest_rank=remote_rank, comm_tag=ary_tag)
 
@@ -720,6 +723,9 @@ class _RankBoundaryCommunicationLazy:
                 return remote_subary_template
             else:
                 ary_tag = (local_part_id.volume_tag, comm_tag, key)
+                if local_part_id.rank == 0:
+                    print(f"recv_single_array: {hash(ary_tag)=}")
+                    print(f"recv_single_array: {ary_tag=}")
                 return DistributedSendRefHolder(
                     sends[key],
                     make_distributed_recv(
