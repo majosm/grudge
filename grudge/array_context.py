@@ -194,6 +194,12 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
 
         from pytools import ProcessLogger
 
+        with ProcessLogger(logger, "concatenate_calls"):
+            dict_of_named_arrays = pt.concatenate_calls(
+                dict_of_named_arrays,
+                lambda _: True,
+                warn_if_no_calls=False)
+
         self.actx._compile_trace_callback(self.f, "pre_deduplicate_data_wrappers",
                 dict_of_named_arrays)
 
