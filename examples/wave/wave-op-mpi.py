@@ -124,6 +124,10 @@ def wave_operator(actx, dcoll, c, w, quad_tag=None):
     dir_bval = WaveState(u=dir_u, v=dir_v)
     dir_bc = WaveState(u=-dir_u, v=dir_v)
 
+    @actx.outline
+    def interior_flux(tpair):
+        return wave_flux(actx, dcoll, c=c, w_tpair=interp_to_surf_quad(tpair))
+
     return (
         op.inverse_mass(
             dcoll,
@@ -142,7 +146,7 @@ def wave_operator(actx, dcoll, c, w, quad_tag=None):
                                                interior=dir_bval,
                                                exterior=dir_bc)
                 ) + sum(
-                    wave_flux(actx, dcoll, c=c, w_tpair=interp_to_surf_quad(tpair))
+                    interior_flux(tpair)
                     for tpair in op.interior_trace_pairs(dcoll, w,
                         comm_tag=_WaveStateTag)
                 )
