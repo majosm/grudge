@@ -201,6 +201,7 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
                 warn_if_no_calls=False)
 
         with ProcessLogger(logger, "inline_calls"):
+            dict_of_named_arrays = pt.tag_all_calls_to_be_inlined(dict_of_named_arrays)
             dict_of_named_arrays = pt.inline_calls(dict_of_named_arrays)
 
         self.actx._compile_trace_callback(self.f, "pre_deduplicate_data_wrappers",
