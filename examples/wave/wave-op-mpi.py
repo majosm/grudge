@@ -206,6 +206,9 @@ def main(ctx_factory, dim=2, order=3,
 
     nel_1d = 16
 
+    from pytato.array import enable_traceback_tag
+    enable_traceback_tag()
+
     if comm.rank == 0:
         if use_nonaffine_mesh:
             from meshmode.mesh.generation import generate_warped_rect_mesh
