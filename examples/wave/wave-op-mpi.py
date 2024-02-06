@@ -92,7 +92,7 @@ def wave_flux(actx, dcoll, c, w_tpair):
         v=0.5 * v_jump * normal,
     )
 
-    return op.project(dcoll, dd, dd.with_domain_tag("all_faces"), c*flux_weak)
+    return c*flux_weak
 
 
 class _WaveStateTag:
@@ -126,7 +126,7 @@ def wave_operator(actx, dcoll, c, w, quad_tag=None):
 
     @actx.outline
     def interior_flux(tpair):
-        return wave_flux(actx, dcoll, c=c, w_tpair=interp_to_surf_quad(tpair))
+        return wave_flux(actx, dcoll, c=c, w_tpair=tpair)
 
     return (
         op.inverse_mass(
@@ -138,15 +138,19 @@ def wave_operator(actx, dcoll, c, w, quad_tag=None):
             + op.face_mass(
                 dcoll,
                 dd_faces,
-                wave_flux(
-                    actx,
-                    dcoll, c=c,
-                    w_tpair=op.bdry_trace_pair(dcoll,
-                                               dd_btag,
-                                               interior=dir_bval,
-                                               exterior=dir_bc)
+                op.project(
+                    dcoll, dd_btag, dd_faces,
+                    wave_flux(
+                        actx,
+                        dcoll, c=c,
+                        w_tpair=op.bdry_trace_pair(dcoll,
+                                                   dd_btag,
+                                                   interior=dir_bval,
+                                                   exterior=dir_bc))
                 ) + sum(
-                    interior_flux(tpair)
+                    op.project(
+                        dcoll, tpair.dd.with_discr_tag(quad_tag), dd_faces,
+                        interior_flux(interp_to_surf_quad(tpair)))
                     for tpair in op.interior_trace_pairs(dcoll, w,
                         comm_tag=_WaveStateTag)
                 )
