@@ -194,15 +194,134 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
 
         from pytools import ProcessLogger
 
+        from mpi4py import MPI
+        rank = MPI.COMM_WORLD.rank
+
+        MPI.COMM_WORLD.barrier()
+        print(f"{rank}: start concatenate")
+
+        from pytato.transform import CopyMapper
+        from pytato.analysis import get_num_nodes
+
+        nnodes_before_copy = get_num_nodes(dict_of_named_arrays)
+
+        dict_of_named_arrays = CopyMapper(err_on_collision=False)(dict_of_named_arrays)
+
+        nnodes_after_copy = get_num_nodes(dict_of_named_arrays)
+        print(f"_dag_to_compiled_func, {rank}: {nnodes_before_copy=}, {nnodes_after_copy=} (1)")
+
+        nnodes_before_precompute = get_num_nodes(dict_of_named_arrays)
+
+        with ProcessLogger(logger, "precompute_subexpressions"):
+            dict_of_named_arrays = pt.precompute_subexpressions(
+                dict_of_named_arrays, self.actx.freeze_thaw)
+
+        nnodes_after_precompute = get_num_nodes(dict_of_named_arrays)
+        print(f"_dag_to_compiled_func, {rank}: {nnodes_before_precompute=}, {nnodes_after_precompute=}")
+
+        # FIXME
+        from pytato.transform.calls import CallsiteCollector
+        all_call_sites = CallsiteCollector(stack=())(dict_of_named_arrays)
+        # function_signatures = set()
+        # for call_site in all_call_sites:
+        #     function = call_site.call.function
+        #     function_signatures.add((
+        #         next(iter(function.tags_of_type(pt.tags.FunctionIdentifier))),
+        #         function.parameters))
+        call_ids = set()
+        for call_site in all_call_sites:
+            call_ids |= call_site.call.tags_of_type(pt.tags.CallIdentifier)
+
+        print(f"_dag_to_compiled_func: {len(all_call_sites)=}, {len(call_ids)=}")
+
+        from pytato.array import forbid_einsums
+
+        forbid_einsums(True)
+
         with ProcessLogger(logger, "concatenate_calls"):
-            dict_of_named_arrays = pt.concatenate_calls(
-                dict_of_named_arrays,
-                lambda _: True,
-                warn_if_no_calls=False)
+            from pytato.analysis import get_node_counts, collect_nodes_of_type
+            if rank == 3:
+                node_counts_before = get_node_counts(dict_of_named_arrays)
+                existing_einsums = collect_nodes_of_type(dict_of_named_arrays, pt.Einsum)
+                existing_einsums2 = collect_nodes_of_type(dict_of_named_arrays, pt.Einsum)
+                assert existing_einsums2 == existing_einsums
+                # ncrs_before = collect_nodes_of_type(dict_of_named_arrays, pt.function.NamedCallResult)
+            for cid in call_ids:
+                dict_of_named_arrays = pt.concatenate_calls(
+                    dict_of_named_arrays, lambda x: cid in x.call.tags)
+            dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
+            if rank == 3:
+                node_counts_after = get_node_counts(dict_of_named_arrays)
+                for node_type in node_counts_after:
+                    count_before = node_counts_before.get(node_type, 0)
+                    count_after = node_counts_after[node_type]
+                    print(f"{node_type}: {count_before}, {count_after}")
+                after_einsums = collect_nodes_of_type(dict_of_named_arrays, pt.Einsum)
+                new_einsums = after_einsums - existing_einsums
+                # assert len(after_einsums & existing_einsums) > 0
+                if new_einsums:
+                    # print(f"Found added einsums:")
+                    # for ensm in new_einsums:
+                        # print(f"{ensm.non_equality_tags}")
+                        # print("")
+                    tb_to_existing_einsums = {}
+                    for ensm in existing_einsums:
+                        tb = str(next(iter(ensm.non_equality_tags)).traceback)
+                        tb_to_existing_einsums.setdefault(tb, []).append(ensm)
+                    tb_to_new_einsums = {}
+                    for ensm in new_einsums:
+                        tb = str(next(iter(ensm.non_equality_tags)).traceback)
+                        tb_to_new_einsums.setdefault(tb, []).append(ensm)
+                    for tb, new_ensms in tb_to_new_einsums.items():
+                        print("Found new einsum created at:")
+                        print(f"{tb=}")
+                        print(f"{sorted([(id(e), hash(e)) for e in new_ensms])=}")
+                        existing_ensms = tb_to_existing_einsums.get(tb, [])
+                        if existing_ensms:
+                            print(f"{sorted([(id(e), hash(e)) for e in existing_ensms])=}")
+                            print("")
+                # ncrs_after = collect_nodes_of_type(dict_of_named_arrays, pt.function.NamedCallResult)
+                # ncrs_intersect = ncrs_before & ncrs_after
+                # print(f"{[ncr.name for ncr in ncrs_before]=}")
+                # print(f"{[ncr.name for ncr in ncrs_after]=}")
+                # if ncrs_intersect:
+                #     print(f"Found ncr intersection:")
+                #     for ncr in ncrs_intersect:
+                #         print(f"{ncr.non_equality_tags}")
+                #         print("")
+
+        MPI.COMM_WORLD.barrier()
+        print(f"{rank}: end concatenate")
+
+        forbid_einsums(False)
+
+        # dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
+
+        from pytato.analysis import get_num_nodes
+        nnodes_before_inline = get_num_nodes(dict_of_named_arrays)
+        print(f"{rank}: {nnodes_before_inline=}")
+
+        MPI.COMM_WORLD.barrier()
+        print(f"{rank}: start inline")
 
         with ProcessLogger(logger, "inline_calls"):
             dict_of_named_arrays = pt.tag_all_calls_to_be_inlined(dict_of_named_arrays)
             dict_of_named_arrays = pt.inline_calls(dict_of_named_arrays)
+
+        MPI.COMM_WORLD.barrier()
+        print(f"{rank}: end inline")
+
+        # dict_of_named_arrays = CopyMapper(err_on_collision=False)(dict_of_named_arrays)
+
+        # from mpi4py import MPI
+        # rank = MPI.COMM_WORLD.rank
+
+        MPI.COMM_WORLD.barrier()
+
+        nnodes_after_inline = get_num_nodes(dict_of_named_arrays)
+        print(f"{rank}: {nnodes_after_inline=}")
+
+        MPI.COMM_WORLD.barrier()
 
         self.actx._compile_trace_callback(self.f, "pre_deduplicate_data_wrappers",
                 dict_of_named_arrays)
@@ -214,6 +333,8 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         self.actx._compile_trace_callback(self.f, "post_deduplicate_data_wrappers",
                 dict_of_named_arrays)
 
+        dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
+
         self.actx._compile_trace_callback(self.f, "pre_materialize",
                 dict_of_named_arrays)
 
@@ -223,6 +344,8 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
 
         self.actx._compile_trace_callback(self.f, "post_materialize",
                 dict_of_named_arrays)
+
+        dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
 
         # FIXME: Remove the import failure handling once this is in upstream grudge
         self.actx._compile_trace_callback(self.f, "pre_infer_axes_tags",
@@ -238,6 +361,8 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
 
         self.actx._compile_trace_callback(self.f, "post_infer_axes_tags",
                 dict_of_named_arrays)
+
+        dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
 
         self.actx._compile_trace_callback(self.f, "pre_find_distributed_partition",
                 dict_of_named_arrays)

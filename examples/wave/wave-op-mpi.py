@@ -124,8 +124,11 @@ def wave_operator(actx, dcoll, c, w, quad_tag=None):
     dir_bval = WaveState(u=dir_u, v=dir_v)
     dir_bc = WaveState(u=-dir_u, v=dir_v)
 
+    from mirgecom.utils import tagged_with_call_id
+
+    @tagged_with_call_id
     @actx.outline
-    def interior_flux(tpair):
+    def interior_flux(c, tpair):
         return wave_flux(actx, dcoll, c=c, w_tpair=tpair)
 
     return (
@@ -150,7 +153,7 @@ def wave_operator(actx, dcoll, c, w, quad_tag=None):
                 ) + sum(
                     op.project(
                         dcoll, tpair.dd.with_discr_tag(quad_tag), dd_faces,
-                        interior_flux(interp_to_surf_quad(tpair)))
+                        interior_flux(c, interp_to_surf_quad(tpair)))
                     for tpair in op.interior_trace_pairs(dcoll, w,
                         comm_tag=_WaveStateTag)
                 )
