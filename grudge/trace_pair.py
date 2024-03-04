@@ -303,6 +303,7 @@ def local_interior_trace_pair(
         else:
             return opposite_face_conn(ary)
 
+    # FIXME: Outline?
     from arraycontext import rec_map_array_container
     from meshmode.dof_array import DOFArray
     exterior = rec_map_array_container(
@@ -754,23 +755,25 @@ class _RankBoundaryCommunicationLazy:
         remote_to_local = self.dcoll._inter_part_connections[
             self.remote_part_id, self.local_part_id]
 
-        def get_opposite_trace(ary):
+        def get_opposite_trace_subary(ary):
             if isinstance(ary, Number):
                 return ary
             else:
                 return remote_to_local(ary)
 
-        from arraycontext import rec_map_array_container
-        from meshmode.dof_array import DOFArray
-        remote_bdry_data = rec_map_array_container(
-            get_opposite_trace,
-            self.unswapped_remote_bdry_data,
-            leaf_class=DOFArray)
+        # @self.array_context.outline
+        def get_opposite_trace(ary):
+            from arraycontext import rec_map_array_container
+            from meshmode.dof_array import DOFArray
+            return rec_map_array_container(
+                get_opposite_trace_subary,
+                ary,
+                leaf_class=DOFArray)
 
         return TracePair(
                 self.local_bdry_dd,
                 interior=self.local_bdry_data,
-                exterior=remote_bdry_data)
+                exterior=get_opposite_trace(self.unswapped_remote_bdry_data))
 
 # }}}
 
@@ -881,6 +884,20 @@ def cross_rank_trace_pairs(
 
     rank_bdry_communicators = []
 
+    # def get_num_nodes(ary):
+    #     from arraycontext.container import (
+    #         serialize_container, NotAnArrayContainerError)
+    #     from pytato import make_dict_of_named_arrays
+    #     from pytato.analysis import get_num_nodes as _get_num_nodes
+    #     try:
+    #         iterable = serialize_container(ary)
+    #         dict_of_named_arrays = make_dict_of_named_arrays(dict(iterable))
+    #         return _get_num_nodes(dict_of_named_arrays)
+    #     except NotAnArrayContainerError:
+    #         return _get_num_nodes(ary)
+
+    # nnodes_before_project = get_num_nodes(ary)
+
     for remote_part_id in remote_part_ids:
         bdry_dd = volume_dd.trace(BTAG_PARTITION(remote_part_id))
 
@@ -908,7 +925,19 @@ def cross_rank_trace_pairs(
                 remote_bdry_data_template=remote_bdry_data_template,
                 comm_tag=comm_tag))
 
-    return [rbc.finish() for rbc in rank_bdry_communicators]
+    result = [rbc.finish() for rbc in rank_bdry_communicators]
+
+    # nnodes_int = [
+    #     get_num_nodes(tpair.int) - nnodes_before_project
+    #     for tpair in result]
+    # nnodes_ext = [
+    #     get_num_nodes(tpair.ext)
+    #     for tpair in result]
+
+    # print(f"cross_rank_trace_pairs, {rank}: {nnodes_int=}")
+    # print(f"cross_rank_trace_pairs, {rank}: {nnodes_ext=}")
+
+    return result
 
 # }}}
 
