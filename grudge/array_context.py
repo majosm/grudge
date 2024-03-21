@@ -197,10 +197,13 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         from mpi4py import MPI
         rank = MPI.COMM_WORLD.rank
 
+        from pytato.array import DataWrapper
         from pytato.transform import CopyMapper
-        from pytato.analysis import get_num_nodes
+        from pytato.analysis import get_num_nodes, collect_nodes_of_type
 
         nnodes_before_dedup = get_num_nodes(dict_of_named_arrays)
+        datawrappers_before_dedup = collect_nodes_of_type(
+            dict_of_named_arrays, DataWrapper)
 
         self.actx._compile_trace_callback(self.f, "pre_deduplicate_data_wrappers_1",
                 dict_of_named_arrays)
@@ -213,13 +216,15 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
                 dict_of_named_arrays)
 
         nnodes_after_dedup = get_num_nodes(dict_of_named_arrays)
+        datawrappers_after_dedup = collect_nodes_of_type(
+            dict_of_named_arrays, DataWrapper)
 
         print(f"_dag_to_compiled_func, {rank}: {nnodes_before_dedup=}, {nnodes_after_dedup=}")
+        print(f"_dag_to_compiled_func, {rank}: {len(datawrappers_before_dedup)=}, {len(datawrappers_after_dedup)=}")
 
         nnodes_before_copy = get_num_nodes(dict_of_named_arrays)
 
-        # dict_of_named_arrays = CopyMapper(err_on_collision=False)(dict_of_named_arrays)
-        dict_of_named_arrays = CopyMapper()(dict_of_named_arrays)
+        dict_of_named_arrays = CopyMapper(err_on_collision=False)(dict_of_named_arrays)
 
         nnodes_after_copy = get_num_nodes(dict_of_named_arrays)
         print(f"_dag_to_compiled_func, {rank}: {nnodes_before_copy=}, {nnodes_after_copy=} (1)")
@@ -231,9 +236,12 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         #         dict_of_named_arrays, self.actx.freeze_thaw)
 
         # nnodes_after_precompute = get_num_nodes(dict_of_named_arrays)
+        # datawrappers_after_precompute = collect_nodes_of_type(
+        #     dict_of_named_arrays, DataWrapper)
         # print(f"_dag_to_compiled_func, {rank}: {nnodes_before_precompute=}, {nnodes_after_precompute=}")
+        # print(f"_dag_to_compiled_func, {rank}: {len(datawrappers_after_dedup)=}, {len(datawrappers_after_precompute)=}")
 
-        # dict_of_named_arrays = CopyMapper()(dict_of_named_arrays)
+        # dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
 
         # MPI.COMM_WORLD.barrier()
         print(f"{rank}: start concatenate")
@@ -247,11 +255,11 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         #     function_signatures.add((
         #         next(iter(function.tags_of_type(pt.tags.FunctionIdentifier))),
         #         function.parameters))
-        call_ids = set()
+        fn_ids = set()
         for call_site in all_call_sites:
-            call_ids |= call_site.call.tags_of_type(pt.tags.CallIdentifier)
+            fn_ids |= call_site.call.function.tags_of_type(pt.tags.FunctionIdentifier)
 
-        print(f"_dag_to_compiled_func, {rank}: {len(all_call_sites)=}, {len(call_ids)=}")
+        print(f"_dag_to_compiled_func, {rank}: {len(all_call_sites)=}, {len(fn_ids)=}")
 
         # from pytato.analysis import get_num_outlined_nodes, get_outlined_node_counts
         # num_outlined_nodes = get_num_outlined_nodes(dict_of_named_arrays)
@@ -273,9 +281,12 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
                 # existing_einsums2 = collect_nodes_of_type(dict_of_named_arrays, pt.Einsum)
                 # assert existing_einsums2 == existing_einsums
                 # ncrs_before = collect_nodes_of_type(dict_of_named_arrays, pt.function.NamedCallResult)
-            for cid in call_ids:
+            for fid in fn_ids:
+                print(f"start concatenating, {rank}: {fid=}")
                 dict_of_named_arrays = pt.concatenate_calls(
-                    dict_of_named_arrays, lambda x: cid in x.call.tags)
+                    dict_of_named_arrays, lambda x: fid in x.call.function.tags,
+                    inherit_axes=True)
+                print(f"end concatenating, {rank}: {fid=}")
             # dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
             # dict_of_named_arrays = CopyMapper(err_on_collision=False)(dict_of_named_arrays)
             node_counts_after_concat = get_node_counts(dict_of_named_arrays)
@@ -319,8 +330,8 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
 
         # forbid_einsums(False)
 
-        # dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
-        dict_of_named_arrays = CopyMapper()(dict_of_named_arrays)
+        dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
+        # dict_of_named_arrays = CopyMapper()(dict_of_named_arrays)
 
         node_counts_before_inline = get_node_counts(dict_of_named_arrays)
 
@@ -335,28 +346,17 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
             dict_of_named_arrays = pt.tag_all_calls_to_be_inlined(dict_of_named_arrays)
             dict_of_named_arrays = pt.inline_calls(dict_of_named_arrays)
 
+        # dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
+
         # MPI.COMM_WORLD.barrier()
         print(f"{rank}: end inline")
 
         node_counts_after_inline = get_node_counts(dict_of_named_arrays)
 
-        if rank == 0:
-            node_types = set()
-            node_types |= set([cls for cls in node_counts_before_concat.keys()])
-            node_types |= set([cls for cls in node_counts_after_concat.keys()])
-            node_types |= set([cls for cls in node_counts_before_inline.keys()])
-            node_types |= set([cls for cls in node_counts_after_inline.keys()])
-            for node_type in node_types:
-                count_before_concat = node_counts_before_concat.get(node_type, 0)
-                count_after_concat = node_counts_after_concat.get(node_type, 0)
-                count_before_inline = node_counts_before_inline.get(node_type, 0)
-                count_after_inline = node_counts_after_inline.get(node_type, 0)
-                print(f"{node_type}: {count_before_concat}, {count_after_concat}, {count_before_inline}, {count_after_inline}")
-
-        # dict_of_named_arrays = CopyMapper(err_on_collision=False)(dict_of_named_arrays)
-
         # from mpi4py import MPI
         # rank = MPI.COMM_WORLD.rank
+        nnodes_after_inline = get_num_nodes(dict_of_named_arrays)
+        print(f"{rank}: {nnodes_after_inline=}")
 
         self.actx._compile_trace_callback(self.f, "pre_deduplicate_data_wrappers_2",
                 dict_of_named_arrays)
@@ -368,10 +368,29 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         self.actx._compile_trace_callback(self.f, "post_deduplicate_data_wrappers_2",
                 dict_of_named_arrays)
 
+        node_counts_after_dedup_2 = get_node_counts(dict_of_named_arrays)
+
+        # assert node_counts_after_dedup_2 == node_counts_after_inline
+
         # MPI.COMM_WORLD.barrier()
 
-        nnodes_after_inline = get_num_nodes(dict_of_named_arrays)
-        print(f"{rank}: {nnodes_after_inline=}")
+        nnodes_after_dedup_2 = get_num_nodes(dict_of_named_arrays)
+        print(f"{rank}: {nnodes_after_dedup_2=}")
+
+        if rank == 0:
+            node_types = set()
+            node_types |= set([cls for cls in node_counts_before_concat.keys()])
+            node_types |= set([cls for cls in node_counts_after_concat.keys()])
+            node_types |= set([cls for cls in node_counts_before_inline.keys()])
+            node_types |= set([cls for cls in node_counts_after_inline.keys()])
+            node_types |= set([cls for cls in node_counts_after_dedup_2.keys()])
+            for node_type in node_types:
+                count_before_concat = node_counts_before_concat.get(node_type, 0)
+                count_after_concat = node_counts_after_concat.get(node_type, 0)
+                count_before_inline = node_counts_before_inline.get(node_type, 0)
+                count_after_inline = node_counts_after_inline.get(node_type, 0)
+                count_after_dedup_2 = node_counts_after_dedup_2.get(node_type, 0)
+                print(f"{node_type}: {count_before_concat}, {count_after_concat}, {count_before_inline}, {count_after_inline}, {count_after_dedup_2}")
 
         # MPI.COMM_WORLD.barrier()
 
