@@ -245,24 +245,13 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
 
         print(f"{rank}: start concatenate")
 
-        # FIXME
-        from pytato.transform.calls import CallsiteCollector
-        all_call_sites = CallsiteCollector(stack=())(dict_of_named_arrays)
-        fn_ids = set()
-        for call_site in all_call_sites:
-            fn_ids |= call_site.call.function.tags_of_type(pt.tags.FunctionIdentifier)
-
-        print(f"_dag_to_compiled_func, {rank}: {len(all_call_sites)=}, {len(fn_ids)=}")
-
         with ProcessLogger(logger, "concatenate_calls"):
             from pytato.analysis import get_node_counts  #, collect_nodes_of_type
             node_counts_before_concat = get_node_counts(dict_of_named_arrays)
-            for fid in fn_ids:
-                print(f"start concatenating, {rank}: {fid=}")
-                dict_of_named_arrays = pt.concatenate_calls(
-                    dict_of_named_arrays, lambda x: fid in x.call.function.tags,
-                    inherit_axes=True)
-                print(f"end concatenating, {rank}: {fid=}")
+            print(f"start concatenating, {rank}")
+            dict_of_named_arrays = pt.concatenate_calls(
+                dict_of_named_arrays, lambda x: True, inherit_axes=True)
+            print(f"end concatenating, {rank}")
             node_counts_after_concat = get_node_counts(dict_of_named_arrays)
 
         print(f"{rank}: end concatenate")
