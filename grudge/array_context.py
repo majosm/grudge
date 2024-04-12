@@ -231,17 +231,14 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         nnodes_after_copy = get_num_nodes(dict_of_named_arrays)
         print(f"_dag_to_compiled_func, {rank}: {nnodes_before_copy=}, {nnodes_after_copy=} (1)")
 
-        nnodes_before_precompute = get_num_nodes(dict_of_named_arrays)
+        # nnodes_before_precompute = get_num_nodes(dict_of_named_arrays)
 
-        with ProcessLogger(logger, "precompute_subexpressions"):
-            dict_of_named_arrays = pt.precompute_subexpressions(
-                dict_of_named_arrays, self.actx.freeze_thaw)
+        # with ProcessLogger(logger, "precompute_subexpressions"):
+        #     dict_of_named_arrays = pt.precompute_subexpressions(
+        #         dict_of_named_arrays, self.actx.freeze_thaw)
 
-        nnodes_after_precompute = get_num_nodes(dict_of_named_arrays)
-        # datawrappers_after_precompute = collect_nodes_of_type(
-        #     dict_of_named_arrays, DataWrapper)
-        print(f"_dag_to_compiled_func, {rank}: {nnodes_before_precompute=}, {nnodes_after_precompute=}")
-        # print(f"_dag_to_compiled_func, {rank}: {len(datawrappers_after_dedup)=}, {len(datawrappers_after_precompute)=}")
+        # nnodes_after_precompute = get_num_nodes(dict_of_named_arrays)
+        # print(f"_dag_to_compiled_func, {rank}: {nnodes_before_precompute=}, {nnodes_after_precompute=}")
 
         # dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
 
@@ -299,16 +296,14 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         nnodes_after_dedup_2 = get_num_nodes(dict_of_named_arrays)
         print(f"{rank}: {nnodes_after_dedup_2=}")
 
-        nnodes_before_precompute_2 = get_num_nodes(dict_of_named_arrays)
+        # nnodes_before_precompute_2 = get_num_nodes(dict_of_named_arrays)
 
-        with ProcessLogger(logger, "precompute_subexpressions_2"):
-            dict_of_named_arrays = pt.precompute_subexpressions(
-                dict_of_named_arrays, self.actx.freeze_thaw, extra_print=True)
+        # with ProcessLogger(logger, "precompute_subexpressions_2"):
+        #     dict_of_named_arrays = pt.precompute_subexpressions(
+        #         dict_of_named_arrays, self.actx.freeze_thaw, extra_print=True)
 
-        nnodes_after_precompute_2 = get_num_nodes(dict_of_named_arrays)
-        # datawrappers_after_precompute = collect_nodes_of_type(
-        #     dict_of_named_arrays, DataWrapper)
-        print(f"_dag_to_compiled_func, {rank}: {nnodes_before_precompute_2=}, {nnodes_after_precompute_2=}")
+        # nnodes_after_precompute_2 = get_num_nodes(dict_of_named_arrays)
+        # print(f"_dag_to_compiled_func, {rank}: {nnodes_before_precompute_2=}, {nnodes_after_precompute_2=}")
 
         dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
 
