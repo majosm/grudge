@@ -89,7 +89,11 @@ def project(
     if isinstance(vec, Number) or src_dofdesc == tgt_dofdesc:
         return vec
 
-    return dcoll.connection_from_dds(src_dofdesc, tgt_dofdesc)(vec)
+    from mirgecom.utils import force_materialize
+    from arraycontext.container import get_container_context_recursively
+    return force_materialize(
+        get_container_context_recursively(vec),
+        dcoll.connection_from_dds(src_dofdesc, tgt_dofdesc)(vec))
 
 
 def volume_quadrature_project(
