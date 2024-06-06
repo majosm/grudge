@@ -201,7 +201,8 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         from pytato.transform import CopyMapper
         from pytato.analysis import get_num_nodes, collect_nodes_of_type
 
-        dict_of_named_arrays = CopyMapper(err_on_duplication=False, err_on_collision=False)(dict_of_named_arrays)
+        # Remove duplicates
+        dict_of_named_arrays = CopyMapper(err_on_collision=False)(dict_of_named_arrays)
 
         nnodes_before_dedup = get_num_nodes(dict_of_named_arrays)
         datawrappers_before_dedup = collect_nodes_of_type(
