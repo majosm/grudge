@@ -231,16 +231,16 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         nnodes_after_copy = get_num_nodes(dict_of_named_arrays)
         print(f"_dag_to_compiled_func, {rank}: {nnodes_before_copy=}, {nnodes_after_copy=} (1)")
 
-        # nnodes_before_precompute = get_num_nodes(dict_of_named_arrays)
+        nnodes_before_precompute = get_num_nodes(dict_of_named_arrays)
 
-        # with ProcessLogger(logger, "precompute_subexpressions"):
-        #     dict_of_named_arrays = pt.precompute_subexpressions(
-        #         dict_of_named_arrays, self.actx.freeze_thaw)
+        with ProcessLogger(logger, "precompute_subexpressions"):
+            dict_of_named_arrays = pt.precompute_subexpressions(
+                dict_of_named_arrays, self.actx.freeze_thaw)
 
-        # nnodes_after_precompute = get_num_nodes(dict_of_named_arrays)
-        # print(f"_dag_to_compiled_func, {rank}: {nnodes_before_precompute=}, {nnodes_after_precompute=}")
+        nnodes_after_precompute = get_num_nodes(dict_of_named_arrays)
+        print(f"_dag_to_compiled_func, {rank}: {nnodes_before_precompute=}, {nnodes_after_precompute=}")
 
-        # dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
+        dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
 
         from pytato.analysis import get_node_counts  #, collect_nodes_of_type
 
