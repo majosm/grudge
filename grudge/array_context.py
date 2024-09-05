@@ -243,23 +243,23 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
 
         dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
 
-        from pytato.analysis import get_node_counts  #, collect_nodes_of_type
+        from pytato.analysis import get_node_type_counts  #, collect_nodes_of_type
 
         # print(f"{rank}: start concatenate")
 
         with ProcessLogger(logger, "concatenate_calls"):
-            node_counts_before_concat = get_node_counts(dict_of_named_arrays)
+            node_counts_before_concat = get_node_type_counts(dict_of_named_arrays)
             print(f"start concatenating, {rank}")
             dict_of_named_arrays = pt.concatenate_calls(
                 dict_of_named_arrays, lambda x: True, inherit_axes=True)
             print(f"end concatenating, {rank}")
-            node_counts_after_concat = get_node_counts(dict_of_named_arrays)
+            node_counts_after_concat = get_node_type_counts(dict_of_named_arrays)
 
         # print(f"{rank}: end concatenate")
 
         dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
 
-        node_counts_before_inline = get_node_counts(dict_of_named_arrays)
+        node_counts_before_inline = get_node_type_counts(dict_of_named_arrays)
 
         from pytato.analysis import get_num_nodes
         nnodes_before_inline = get_num_nodes(dict_of_named_arrays)
@@ -273,11 +273,11 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
             dict_of_named_arrays = pt.inline_calls(dict_of_named_arrays)
 
         # dict_of_named_arrays = CopyMapper(err_on_collision=True)(dict_of_named_arrays)
-        dict_of_named_arrays = CopyMapper(err_on_duplication=False, err_on_collision=False)(dict_of_named_arrays)
+        dict_of_named_arrays = CopyMapper(err_on_no_op_duplication=False, err_on_collision=False)(dict_of_named_arrays)
 
         print(f"{rank}: end inline")
 
-        node_counts_after_inline = get_node_counts(dict_of_named_arrays)
+        node_counts_after_inline = get_node_type_counts(dict_of_named_arrays)
 
         nnodes_after_inline = get_num_nodes(dict_of_named_arrays)
         print(f"{rank}: {nnodes_after_inline=}")
@@ -292,7 +292,7 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         self.actx._compile_trace_callback(self.f, "post_deduplicate_data_wrappers_2",
                 dict_of_named_arrays)
 
-        node_counts_after_dedup_2 = get_node_counts(dict_of_named_arrays)
+        node_counts_after_dedup_2 = get_node_type_counts(dict_of_named_arrays)
 
         nnodes_after_dedup_2 = get_num_nodes(dict_of_named_arrays)
         print(f"{rank}: {nnodes_after_dedup_2=}")
