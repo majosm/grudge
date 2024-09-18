@@ -253,6 +253,16 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         with ProcessLogger(logger, "remove_duplicates"):
             dict_of_named_arrays = pt.transform.Deduplicator()(dict_of_named_arrays)
 
+        self.actx._compile_trace_callback(self.f, "pre_unify_materialization_tags",
+                dict_of_named_arrays)
+
+        with ProcessLogger(logger, "unify_materialization_tags"):
+            dict_of_named_arrays = pt.transform.unify_materialization_tags(
+                dict_of_named_arrays)
+
+        self.actx._compile_trace_callback(self.f, "post_unify_materialization_tags",
+                dict_of_named_arrays)
+
         self.actx._compile_trace_callback(self.f, "pre_deduplicate_data_wrappers_1",
                 dict_of_named_arrays)
 
