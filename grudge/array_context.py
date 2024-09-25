@@ -263,6 +263,17 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         self.actx._compile_trace_callback(self.f, "post_deduplicate_data_wrappers",
                 dict_of_named_arrays)
 
+        self.actx._compile_trace_callback(self.f, "pre_inline_calls",
+                dict_of_named_arrays)
+
+        with ProcessLogger(logger, "inline_calls"):
+            dict_of_named_arrays = pt.tag_all_calls_to_be_inlined(
+                dict_of_named_arrays)
+            dict_of_named_arrays = pt.inline_calls(dict_of_named_arrays)
+
+        self.actx._compile_trace_callback(self.f, "post_inline_calls",
+                dict_of_named_arrays)
+
         self.actx._compile_trace_callback(self.f, "pre_materialize",
                 dict_of_named_arrays)
 
