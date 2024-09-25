@@ -273,6 +273,16 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         self.actx._compile_trace_callback(self.f, "post_deduplicate_data_wrappers_1",
                 dict_of_named_arrays)
 
+        self.actx._compile_trace_callback(self.f, "pre_precompute_subexpressions",
+                dict_of_named_arrays)
+
+        with ProcessLogger(logger, "precompute_subexpressions"):
+            dict_of_named_arrays = pt.precompute_subexpressions(
+                dict_of_named_arrays, self.actx.freeze_thaw)
+
+        self.actx._compile_trace_callback(self.f, "post_precompute_subexpressions",
+                dict_of_named_arrays)
+
         self.actx._compile_trace_callback(self.f, "pre_inline_calls",
                 dict_of_named_arrays)
 
