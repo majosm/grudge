@@ -250,6 +250,9 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
 
         from pytools import ProcessLogger
 
+        with ProcessLogger(logger, "remove_duplicates"):
+            dict_of_named_arrays = pt.transform.Deduplicator()(dict_of_named_arrays)
+
         self.actx._compile_trace_callback(self.f, "pre_deduplicate_data_wrappers",
                 dict_of_named_arrays)
 
