@@ -253,14 +253,14 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         with ProcessLogger(logger, "remove_duplicates"):
             dict_of_named_arrays = pt.transform.Deduplicator()(dict_of_named_arrays)
 
-        self.actx._compile_trace_callback(self.f, "pre_deduplicate_data_wrappers",
+        self.actx._compile_trace_callback(self.f, "pre_deduplicate_data_wrappers_1",
                 dict_of_named_arrays)
 
-        with ProcessLogger(logger, "deduplicate_data_wrappers[pre-partition]"):
+        with ProcessLogger(logger, "deduplicate_data_wrappers_1[pre-partition]"):
             dict_of_named_arrays = pt.transform.deduplicate_data_wrappers(
                 dict_of_named_arrays)
 
-        self.actx._compile_trace_callback(self.f, "post_deduplicate_data_wrappers",
+        self.actx._compile_trace_callback(self.f, "post_deduplicate_data_wrappers_1",
                 dict_of_named_arrays)
 
         self.actx._compile_trace_callback(self.f, "pre_inline_calls",
@@ -272,6 +272,16 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
             dict_of_named_arrays = pt.inline_calls(dict_of_named_arrays)
 
         self.actx._compile_trace_callback(self.f, "post_inline_calls",
+                dict_of_named_arrays)
+
+        self.actx._compile_trace_callback(self.f, "pre_deduplicate_data_wrappers_2",
+                dict_of_named_arrays)
+
+        with ProcessLogger(logger, "deduplicate_data_wrappers_2[pre-partition]"):
+            dict_of_named_arrays = pt.transform.deduplicate_data_wrappers(
+                dict_of_named_arrays)
+
+        self.actx._compile_trace_callback(self.f, "post_deduplicate_data_wrappers_2",
                 dict_of_named_arrays)
 
         self.actx._compile_trace_callback(self.f, "pre_materialize",
