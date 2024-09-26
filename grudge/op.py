@@ -936,9 +936,13 @@ def reference_mass_matrix(actx: ArrayContext, out_element_group, in_element_grou
     def get_ref_mass_mat(out_grp, in_grp):
         if out_grp == in_grp:
             return actx.freeze(
-                actx.from_numpy(
-                    mp.mass_matrix(out_grp.basis_obj(), out_grp.unit_nodes)
-                    )
+                tag_axes(actx,
+                    {
+                        0: DiscretizationDOFAxisTag(),
+                        1: DiscretizationDOFAxisTag()},
+                    actx.from_numpy(
+                        mp.mass_matrix(out_grp.basis_obj(), out_grp.unit_nodes)
+                        ))
                 )
 
         from modepy import vandermonde
@@ -1499,7 +1503,11 @@ def _apply_face_mass_operator(dcoll: DiscretizationCollection, dd_in, vec):
                             face_element_group=afgrp,
                             vol_element_group=vgrp,
                             dtype=dtype),
-                        actx.tag_axis(1, DiscretizationElementAxisTag(),
+                        tag_axes(actx,
+                            {
+                                0: DiscretizationFaceAxisTag(),
+                                1: DiscretizationElementAxisTag(),
+                                2: DiscretizationDOFAxisTag()},
                             surf_ae_i.reshape(
                                 vgrp.mesh_el_group.nfaces,
                                 vgrp.nelements,
