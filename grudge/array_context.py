@@ -283,6 +283,16 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         self.actx._compile_trace_callback(self.f, "post_precompute_subexpressions",
                 dict_of_named_arrays)
 
+        self.actx._compile_trace_callback(self.f, "pre_concatenate",
+                dict_of_named_arrays)
+
+        with ProcessLogger(logger, "concatenate_calls"):
+            dict_of_named_arrays = pt.concatenate_calls(
+                dict_of_named_arrays, lambda x: True, inherit_axes=True)
+
+        self.actx._compile_trace_callback(self.f, "post_concatenate",
+                dict_of_named_arrays)
+
         self.actx._compile_trace_callback(self.f, "pre_inline_calls",
                 dict_of_named_arrays)
 
