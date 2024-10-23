@@ -276,12 +276,25 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         self.actx._compile_trace_callback(self.f, "pre_precompute_subexpressions",
                 dict_of_named_arrays)
 
+        rank = self.actx.mpi_communicator.rank
+
+        from pytato.analysis import get_num_nodes
+        nnodes_before_precompute = get_num_nodes(dict_of_named_arrays)
+        print(f"{rank}: {nnodes_before_precompute=}")
+
         with ProcessLogger(logger, "precompute_subexpressions"):
             dict_of_named_arrays = pt.precompute_subexpressions(
                 dict_of_named_arrays, self.actx.freeze_thaw)
 
+        nnodes_after_precompute = get_num_nodes(dict_of_named_arrays)
+        print(f"{rank}: {nnodes_after_precompute=}")
+
         self.actx._compile_trace_callback(self.f, "post_precompute_subexpressions",
                 dict_of_named_arrays)
+
+        nnodes_not_outlined = get_num_nodes(
+            dict_of_named_arrays, traverse_functions=False)
+        print(f"{rank}: {nnodes_not_outlined=}")
 
         self.actx._compile_trace_callback(self.f, "pre_concatenate",
                 dict_of_named_arrays)
@@ -289,6 +302,9 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         with ProcessLogger(logger, "concatenate_calls"):
             dict_of_named_arrays = pt.concatenate_calls(
                 dict_of_named_arrays, lambda x: True, inherit_axes=True)
+
+        nnodes_after_concat = get_num_nodes(dict_of_named_arrays)
+        print(f"{rank}: {nnodes_after_concat=}")
 
         self.actx._compile_trace_callback(self.f, "post_concatenate",
                 dict_of_named_arrays)
@@ -301,6 +317,9 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
                 dict_of_named_arrays)
             dict_of_named_arrays = pt.inline_calls(dict_of_named_arrays)
 
+        nnodes_after_inline = get_num_nodes(dict_of_named_arrays)
+        print(f"{rank}: {nnodes_after_inline=}")
+
         self.actx._compile_trace_callback(self.f, "post_inline_calls",
                 dict_of_named_arrays)
 
@@ -310,6 +329,9 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         with ProcessLogger(logger, "deduplicate_data_wrappers_2[pre-partition]"):
             dict_of_named_arrays = pt.transform.deduplicate_data_wrappers(
                 dict_of_named_arrays)
+
+        nnodes_after_dedup_2 = get_num_nodes(dict_of_named_arrays)
+        print(f"{rank}: {nnodes_after_dedup_2=}")
 
         self.actx._compile_trace_callback(self.f, "post_deduplicate_data_wrappers_2",
                 dict_of_named_arrays)
