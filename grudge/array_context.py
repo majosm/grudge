@@ -260,6 +260,12 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         self.actx._compile_trace_callback(self.f, "post_deduplicate_data_wrappers",
                 dict_of_named_arrays)
 
+        rank = self.actx.mpi_communicator.rank
+
+        from pytato.analysis import get_num_nodes
+        nnodes_after_dedup = get_num_nodes(dict_of_named_arrays)
+        print(f"{rank}: {nnodes_after_dedup=}")
+
         self.actx._compile_trace_callback(self.f, "pre_materialize",
                 dict_of_named_arrays)
 
