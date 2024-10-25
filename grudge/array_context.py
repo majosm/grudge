@@ -282,9 +282,9 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
         nnodes_before_precompute = get_num_nodes(dict_of_named_arrays)
         print(f"{rank}: {nnodes_before_precompute=}")
 
-        with ProcessLogger(logger, "precompute_subexpressions"):
-            dict_of_named_arrays = pt.precompute_subexpressions(
-                dict_of_named_arrays, self.actx.freeze_thaw)
+        # with ProcessLogger(logger, "precompute_subexpressions"):
+        #     dict_of_named_arrays = pt.precompute_subexpressions(
+        #         dict_of_named_arrays, self.actx.freeze_thaw)
 
         nnodes_after_precompute = get_num_nodes(dict_of_named_arrays)
         print(f"{rank}: {nnodes_after_precompute=}")
