@@ -49,6 +49,7 @@ from warnings import warn
 from meshmode.array_context import (
     PyOpenCLArrayContext as _PyOpenCLArrayContextBase,
     PytatoPyOpenCLArrayContext as _PytatoPyOpenCLArrayContextBase,
+    FEMEinsumTag,
 )
 from pytools import to_identifier
 from pytools.tag import Tag
@@ -301,7 +302,8 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
 
         with ProcessLogger(logger, "concatenate_calls"):
             dict_of_named_arrays = pt.concatenate_calls(
-                dict_of_named_arrays, lambda x: True, inherit_axes=True)
+                dict_of_named_arrays, lambda x: True, inherit_axes=True,
+                ignore_tag_types=frozenset({pt.tags.PrefixNamed, FEMEinsumTag}))
 
         nnodes_after_concat = get_num_nodes(dict_of_named_arrays)
         print(f"{rank}: {nnodes_after_concat=}")
