@@ -478,9 +478,9 @@ class MPIPytatoArrayContextBase(MPIBasedArrayContext):
                  "to reduce device allocations)", stacklevel=2)
 
         super().__init__(queue, allocator,
-                compile_trace_callback=compile_trace_callback,
-                use_axis_tag_inference_fallback=use_axis_tag_inference_fallback,
-                use_einsum_inference_fallback=use_einsum_inference_fallback)
+                compile_trace_callback=compile_trace_callback)
+                # use_axis_tag_inference_fallback=use_axis_tag_inference_fallback,
+                # use_einsum_inference_fallback=use_einsum_inference_fallback)
 
         self.mpi_communicator = mpi_communicator
         self.mpi_base_tag = mpi_base_tag
@@ -495,9 +495,9 @@ class MPIPytatoArrayContextBase(MPIBasedArrayContext):
         # pylint: disable=no-member
         return type(self)(self.mpi_communicator, self.queue,
                 mpi_base_tag=self.mpi_base_tag,
-                allocator=self.allocator,
-                use_axis_tag_inference_fallback=self.use_axis_tag_inference_fallback,
-                use_einsum_inference_fallback=self.use_einsum_inference_fallback)
+                allocator=self.allocator)
+                # use_axis_tag_inference_fallback=self.use_axis_tag_inference_fallback,
+                # use_einsum_inference_fallback=self.use_einsum_inference_fallback)
 
 # }}}
 
@@ -585,9 +585,9 @@ class MPIBasePytatoPyOpenCLArrayContext(
                  "to reduce device allocations)", stacklevel=2)
 
         super().__init__(queue, allocator,
-                compile_trace_callback=compile_trace_callback,
-                use_axis_tag_inference_fallback=use_axis_tag_inference_fallback,
-                use_einsum_inference_fallback=use_einsum_inference_fallback)
+                compile_trace_callback=compile_trace_callback)
+                # use_axis_tag_inference_fallback=use_axis_tag_inference_fallback,
+                # use_einsum_inference_fallback=use_einsum_inference_fallback)
 
         self.mpi_communicator = mpi_communicator
         self.mpi_base_tag = mpi_base_tag
@@ -600,9 +600,9 @@ class MPIBasePytatoPyOpenCLArrayContext(
     def clone(self) -> Self:
         return type(self)(self.mpi_communicator, self.queue,
                 mpi_base_tag=self.mpi_base_tag,
-                allocator=self.allocator,
-                use_axis_tag_inference_fallback=self.use_axis_tag_inference_fallback,
-                use_einsum_inference_fallback=self.use_einsum_inference_fallback)
+                allocator=self.allocator)
+                # use_axis_tag_inference_fallback=self.use_axis_tag_inference_fallback,
+                # use_einsum_inference_fallback=self.use_einsum_inference_fallback)
 
 
 # class MPIBasePytatoPyOpenCLArrayContext(
