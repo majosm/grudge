@@ -119,6 +119,7 @@ if TYPE_CHECKING:
 
     import pyopencl
     import pyopencl.tools
+    import pyopencl.typing
 
 
 class PyOpenCLArrayContext(_PyOpenCLArrayContextBase):
@@ -126,7 +127,7 @@ class PyOpenCLArrayContext(_PyOpenCLArrayContextBase):
     to understand :mod:`grudge`-specific transform metadata.
     """
     def __init__(self, queue: pyopencl.CommandQueue,
-            allocator: pyopencl.tools.AllocatorBase | None = None,
+            allocator: pyopencl.array.Allocator | None = None,
             wait_event_queue_length: int | None = None,
             force_device_scalars: bool | None = None) -> None:
 
@@ -515,7 +516,7 @@ class MPIPyOpenCLArrayContext(PyOpenCLArrayContext, MPIBasedArrayContext):
     def __init__(self,
             mpi_communicator,
             queue: pyopencl.CommandQueue,
-            *, allocator: pyopencl.tools.AllocatorBase | None = None,
+            *, allocator: pyopencl.array.Allocator | None = None,
             wait_event_queue_length: int | None = None,
             force_device_scalars: bool | None = None) -> None:
         """
