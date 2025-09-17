@@ -286,6 +286,11 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
 
         with ProcessLogger(logger,
                            "transform_dag.infer_axes_tags[pre-partition]"):
+            # Reset discr_key to None in DiscretizationDOFAxisTag for now (remove
+            # once meshmode/grudge/mirgecom are all updated to use it)
+            # from meshmode.pytato_utils import DiscrKeyRemover
+            dict_of_named_arrays = DiscrKeyRemover()(dict_of_named_arrays)
+
             from meshmode.transform_metadata import DiscretizationEntityAxisTag
             dict_of_named_arrays = pt.unify_axes_tags(
                 dict_of_named_arrays,
