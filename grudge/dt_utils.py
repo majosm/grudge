@@ -359,7 +359,7 @@ def dt_geometric_factors(
                         tag_axes(actx, {
                             0: DiscretizationFaceAxisTag(),
                             1: DiscretizationElementAxisTag(),
-                            2: DiscretizationDOFAxisTag()
+                            2: DiscretizationDOFAxisTag(vgrp.discretization_key())
                         },
                                 face_ae_i.reshape(
                                     vgrp.mesh_el_group.nfaces,
@@ -399,9 +399,13 @@ def dt_geometric_factors(
                         actx.einsum(
                             "e,ei->ei",
                             1/sae_i,
-                            actx.tag_axis(1, DiscretizationDOFAxisTag(), cv_i),
+                            actx.tag_axis(
+                                1, DiscretizationDOFAxisTag(
+                                    vgrp.discretization_key()),
+                                cv_i),
                             tagged=(FirstAxisIsElementsTag(),)) * r_fac
-                        for cv_i, sae_i in zip(cell_vols, surface_areas)))))
+                        for vgrp, cv_i, sae_i in zip(
+                            volm_discr.groups, cell_vols, surface_areas)))))
 
 # }}}
 

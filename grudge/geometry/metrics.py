@@ -68,7 +68,6 @@ from meshmode.transform_metadata import (
     DiscretizationAmbientDimAxisTag,
     DiscretizationTopologicalDimAxisTag,
     DiscretizationDOFAxisTag,
-    DiscretizationElementAxisTag,
 )
 from pymbolic.geometric_algebra import MultiVector
 from pytools import memoize_in
@@ -88,7 +87,7 @@ def _has_geoderiv_connection(grp):
 
 
 def _geometry_to_quad_if_requested(
-        dcoll, inner_dd, dd, vec, _use_geoderiv_connection):
+        actx, dcoll, inner_dd, dd, vec, _use_geoderiv_connection):
 
     def to_quad(vec):
         if not dd.uses_quadrature():
@@ -103,13 +102,23 @@ def _geometry_to_quad_if_requested(
     if not _use_geoderiv_connection:
         return all_quad_vec
 
+    quad_discr = dcoll.discr_from_dd(dd)
+
+    all_geoderiv_vec = dcoll._base_to_geoderiv_connection(inner_dd)(vec)
+    all_geoderiv_vec = tuple(
+        tag_axes(actx,
+            {1: DiscretizationDOFAxisTag(grp.discretization_key())},
+            geoderiv_vec_i)
+        for grp, geoderiv_vec_i in zip(
+            quad_discr.groups, all_geoderiv_vec, strict=True))
+
     return DOFArray(
             vec.array_context,
             tuple(
                 geoderiv_vec_i if _has_geoderiv_connection(megrp) else all_quad_vec_i
                 for megrp, geoderiv_vec_i, all_quad_vec_i in zip(
                     dcoll.discr_from_dd(inner_dd).mesh.groups,
-                    dcoll._base_to_geoderiv_connection(inner_dd)(vec),
+                    all_geoderiv_vec,
                     all_quad_vec, strict=True)))
 
 
@@ -181,7 +190,7 @@ def forward_metric_nth_derivative(
     )
 
     return _geometry_to_quad_if_requested(
-        dcoll, inner_dd, dd, vec, _use_geoderiv_connection)
+        actx, dcoll, inner_dd, dd, vec, _use_geoderiv_connection)
 
 
 def forward_metric_derivative_vector(
@@ -669,8 +678,7 @@ def area_element(
         res = pseudoscalar(
             actx, dcoll, dd=dd, _use_geoderiv_connection=_use_geoderiv_connection
         ).norm_squared()
-        result = actx.np.sqrt(tag_axes(actx, {0: DiscretizationElementAxisTag(),
-                                              1: DiscretizationDOFAxisTag()}, res))
+        result = actx.np.sqrt(res)
         return actx.freeze(
                 actx.tag(NameHint(f"area_el_{dd.as_identifier()}"), result))
 

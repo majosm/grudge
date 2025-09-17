@@ -513,7 +513,9 @@ class DiscretizationCollection:
         return make_same_mesh_connection(
                 self._setup_actx,
                 to_discr=geo_deriv_discr,
-                from_discr=base_discr)
+                from_discr=base_discr,
+                # Let the caller decide how to tag the DOF axes
+                tag_out_dof_axes=False)
 
     # }}}
 

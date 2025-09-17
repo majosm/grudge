@@ -997,19 +997,9 @@ def cross_rank_trace_pairs(
 
         local_bdry_data = project(dcoll, volume_dd, bdry_dd, ary)
 
-        from arraycontext import tag_axes
-        from meshmode.transform_metadata import (
-            DiscretizationElementAxisTag,
-            DiscretizationDOFAxisTag)
-        remote_bdry_zeros = tag_axes(
-            actx, {
-                0: DiscretizationElementAxisTag(),
-                1: DiscretizationDOFAxisTag()},
-            dcoll._inter_part_connections[
-                remote_part_id, local_part_id].from_discr.zeros(actx))
-
         remote_bdry_data_template = _replace_dof_arrays(
-            local_bdry_data, remote_bdry_zeros)
+            local_bdry_data, dcoll._inter_part_connections[
+                remote_part_id, local_part_id].from_discr.zeros(actx))
 
         rank_bdry_communicators.append(
             rbc_class(actx, dcoll,
@@ -1127,16 +1117,8 @@ def cross_rank_inter_volume_trace_pairs(
                 self_bdry_data = project(
                     dcoll, self_vol_dd, self_bdry_dd, self_vol_data)
 
-                from arraycontext import tag_axes
-                from meshmode.transform_metadata import (
-                    DiscretizationElementAxisTag,
-                    DiscretizationDOFAxisTag)
-                other_bdry_zeros = tag_axes(
-                    actx, {
-                        0: DiscretizationElementAxisTag(),
-                        1: DiscretizationDOFAxisTag()},
-                    dcoll._inter_part_connections[
-                        other_part_id, self_part_id].from_discr.zeros(actx))
+                other_bdry_zeros = dcoll._inter_part_connections[
+                        other_part_id, self_part_id].from_discr.zeros(actx)
 
                 other_bdry_data_template = _replace_dof_arrays(
                     other_vol_data, other_bdry_zeros)

@@ -329,7 +329,7 @@ def _reference_derivative_matrices(actx: ArrayContext,
                 in_grp: InterpolatoryElementGroupBase) -> Array:
         return actx.freeze(
                 actx.tag_axis(
-                    1, DiscretizationDOFAxisTag(),
+                    1, DiscretizationDOFAxisTag(in_grp.discretization_key()),
                     actx.from_numpy(
                         np.asarray(
                             mp.diff_matrices(
@@ -508,7 +508,9 @@ def _reference_stiffness_transpose_matrices(
             diff_matrices = mp.diff_matrices(out_grp.basis_obj(), out_grp.unit_nodes)
 
             return actx.freeze(
-                actx.tag_axis(1, DiscretizationDOFAxisTag(),
+                tag_axes(actx, {
+                        1: DiscretizationDOFAxisTag(out_grp.discretization_key()),
+                        2: DiscretizationDOFAxisTag(in_grp.discretization_key())},
                     actx.from_numpy(
                         np.asarray(
                             [dmat.T @ mmat.T for dmat in diff_matrices]))))
@@ -748,7 +750,7 @@ def reference_mass_matrix(actx: ArrayContext, out_element_group, in_element_grou
 
         weights = in_grp.quadrature_rule().weights
         return actx.freeze(
-                actx.tag_axis(0, DiscretizationDOFAxisTag(),
+                actx.tag_axis(0, DiscretizationDOFAxisTag(out_grp.discretization_key()),
                     actx.from_numpy(
                         np.asarray(
                             np.einsum("j,ik,jk->ij", weights, vand_inv_t, o_vand),
@@ -846,7 +848,7 @@ def reference_inverse_mass_matrix(actx: ArrayContext, element_group):
         basis = grp.basis_obj()
 
         return actx.freeze(
-            actx.tag_axis(0, DiscretizationDOFAxisTag(),
+            actx.tag_axis(0, DiscretizationDOFAxisTag(grp.discretization_key()),
                 actx.from_numpy(
                     np.asarray(
                         inverse_mass_matrix(basis, grp.unit_nodes),
@@ -1241,8 +1243,8 @@ def reference_face_mass_matrix(
 
         return actx.freeze(
                 tag_axes(actx, {
-                    0: DiscretizationDOFAxisTag(),
-                    2: DiscretizationDOFAxisTag()
+                    0: DiscretizationDOFAxisTag(vol_grp.discretization_key()),
+                    2: DiscretizationDOFAxisTag(face_grp.discretization_key())
                     },
                     actx.from_numpy(matrix)))
 

@@ -72,10 +72,6 @@ from arraycontext import (
     tag_axes,
 )
 from meshmode.dof_array import DOFArray
-from meshmode.transform_metadata import (
-    DiscretizationDOFAxisTag,
-    DiscretizationElementAxisTag,
-)
 from pymbolic import Number, RealNumber
 from pytools import memoize_in
 
@@ -350,6 +346,7 @@ def _apply_elementwise_reduction(
         raise TypeError("invalid number of arguments")
 
     dd = dof_desc.as_dofdesc(dd)
+    discr = dcoll.discr_from_dd(dd)
 
     if not isinstance(vec, DOFArray):
         return map_array_container(
@@ -359,16 +356,12 @@ def _apply_elementwise_reduction(
     actx = vec.array_context
 
     if actx.supports_nonscalar_broadcasting:
-        return DOFArray(
+        result = DOFArray(
             actx,
             data=tuple(
-                tag_axes(actx, {
-                        0: DiscretizationElementAxisTag(),
-                        1: DiscretizationDOFAxisTag()},
-                    getattr(actx.np, op_name)(vec_i, axis=1).reshape(-1, 1))
-                for vec_i in vec
-            )
-        )
+                getattr(actx.np, op_name)(vec_i, axis=1).reshape(-1, 1)
+                for vec_i in vec))
+
     else:
         @memoize_in(actx, (_apply_elementwise_reduction, dd,
                         f"elementwise_{op_name}_prg"))
@@ -394,12 +387,13 @@ def _apply_elementwise_reduction(
                 "iel": ConcurrentElementInameTag(),
                 "idof": ConcurrentDOFInameTag()})
 
-        return actx.tag_axis(1, DiscretizationDOFAxisTag(),
-                DOFArray(
-                    actx,
-                    data=tuple(
-                        actx.call_loopy(elementwise_prg(), operand=vec_i)["result"]
-                        for vec_i in vec)))
+        result = DOFArray(
+            actx,
+            data=tuple(
+                actx.call_loopy(elementwise_prg(), operand=vec_i)["result"]
+                for vec_i in vec))
+
+    return discr.tag_dof_array_axes(actx, result)
 
 
 def elementwise_sum(
