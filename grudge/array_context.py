@@ -277,6 +277,88 @@ class _DistributedLazilyPyOpenCLCompilingFunctionCaller(
             dict_of_named_arrays = pt.transform.materialize_with_mpms(
                 dict_of_named_arrays)
 
+        if "rhs" in self.f.__name__:
+            def materialize(expr: pt.transform.ArrayOrNames) -> pt.transform.ArrayOrNames:
+                if (
+                        isinstance(expr, pt.Array)
+                        and not isinstance(expr,
+                            (pt.DataWrapper, pt.Placeholder, pt.SizeParam, pt.function.NamedCallResult))):
+                    return expr.tagged(pt.tags.ImplStored())
+                else:
+                    return expr
+
+            op_name_to_nflops = pt.analysis.get_default_op_name_to_num_flops()
+            op_name_to_nflops.update({
+                "/": 4,
+                "//": 4,
+                "**": 8,
+                "pytato.c99.abs": 1,
+                "pytato.c99.sqrt": 4,
+                "pytato.c99.exp": 8,
+                "pytato.c99.log": 8,
+                "pytato.c99.isnan": 8})
+
+            dict_of_named_arrays_all_materialized = pt.transform.map_and_copy(
+                dict_of_named_arrays, materialize)
+            nflops_total = pt.analysis.get_num_flops(
+                dict_of_named_arrays, op_name_to_nflops)
+            nflops_total_all_materialized = pt.analysis.get_num_flops(
+                dict_of_named_arrays_all_materialized, op_name_to_nflops)
+
+            nnodes = pt.analysis.get_num_nodes(dict_of_named_arrays)
+            materialized_nodes = pt.transform.ConditionalDependencyMapper(
+                lambda e: bool(e.tags_of_type(pt.tags.ImplStored)))(dict_of_named_arrays)
+            n_materialized_nodes = len(materialized_nodes)
+
+            print(f"{nnodes=}, {n_materialized_nodes=}, {nflops_total=}, {nflops_total_all_materialized=}")
+
+            node_to_nusers = pt.analysis.get_nusers(dict_of_named_arrays)
+
+            unmaterialized_node_to_flop_counts = \
+                pt.analysis.get_unmaterialized_node_flop_counts(
+                    dict_of_named_arrays, op_name_to_nflops)
+
+            unmaterialized_node_to_saved_flops = {
+                subexpr: (
+                    sum(flop_counts.materialized_successor_to_contrib_nflops.values())
+                    - flop_counts.nflops_if_materialized)
+                for subexpr, flop_counts in unmaterialized_node_to_flop_counts.items()}
+
+            for subexpr, nflops_saved in sorted(
+                    unmaterialized_node_to_saved_flops.items(),
+                    key=lambda item: item[1],
+                    reverse=True):
+                # if nflops_saved < 5000:
+                #     break
+                nusers = node_to_nusers[subexpr]
+                flop_counts = unmaterialized_node_to_flop_counts[subexpr]
+                materialized_preds = pt.transform.SubsetDependencyMapper(materialized_nodes)(subexpr)
+                print(f"unmaterialized subexpr: {type(subexpr)}, {hex(id(subexpr))}, {subexpr.shape}, {flop_counts.nflops_if_materialized}, {nusers}, {nflops_saved}, {pt.analysis.get_num_nodes(subexpr)}, {len(materialized_preds)}", flush=True)
+                # from pytato.visualization import show_dot_graph
+                # show_dot_graph(subexpr)
+                # for pred in materialized_preds:
+                #     pred_tb_tag = next(iter(pred.non_equality_tags))
+                #     print(f"unmaterialized subexpr: {pred_tb_tag=}", flush=True)
+                #     print("", flush=True)
+                #     print("", flush=True)
+                # tb_tag = next(iter(subexpr.non_equality_tags))
+                # print(f"unmaterialized subexpr: {tb_tag=}", flush=True)
+                # expr = next(iter(flop_counts.materialized_successor_to_contrib_nflops.keys()))
+                # tb_tag = next(iter(expr.non_equality_tags))
+                # print(f"materialized expr: {type(expr)}, {hex(id(expr))}, {expr.shape}, {tb_tag=}")
+                # print(f"materialized expr: {pt.analysis.get_num_nodes(expr)=}")
+                # adv_indices = pt.transform.ConditionalDependencyMapper(
+                #     lambda e: isinstance(e, pt.AdvancedIndexInContiguousAxes))(expr)
+                # for adv_idx in adv_indices:
+                #     if adv_idx.array is subexpr:
+                #         tb_tag = next(iter(adv_idx.non_equality_tags))
+                #         print(f"adv idx: {hex(id(adv_idx))}, {adv_idx.shape}, {tb_tag=}")
+                print("", flush=True)
+                1/0
+                # from pytato.visualization import show_dot_graph
+                # show_dot_graph(expr)
+            # 1/0
+
         self.actx._compile_trace_callback(self.f, "post_materialize",
                 dict_of_named_arrays)
 
