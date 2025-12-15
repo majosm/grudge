@@ -7,7 +7,7 @@ dependencies:
 - numpy
 - libhwloc=2
 # pocl 3.1 needed for SVM functionality
-- pocl>=3.1
+- pocl=7.0
 - islpy
 - pyopencl
 - python=3
